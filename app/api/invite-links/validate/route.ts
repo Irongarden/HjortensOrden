@@ -25,7 +25,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ valid: false, reason: 'db_error', detail: error.message })
   }
 
-  if (!link) return NextResponse.json({ valid: false, reason: 'not_found' })
+  if (!link) {
+    // Debug: søg uden active-filter for at se om token overhovedet eksisterer
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: anyLink } = await (admin as any)
+      .from('public_invite_links')
+      .select('token, active, expires_at, uses_count, max_uses')
+      .eq('token', token)
+      .maybeSingle()
+    console.error('[validate] not_found – token_length:', token.length, '| found_without_active_filter:', !!anyLink, '| record:', anyLink)
+    return NextResponse.json({ valid: false, reason: 'not_found', debug: { token_length: token.length, found_without_active_filter: !!anyLink, record: anyLink } })
+  }
 
   if (link.expires_at && new Date(link.expires_at) < new Date()) {
     return NextResponse.json({ valid: false, expired: true, reason: 'expired' })
