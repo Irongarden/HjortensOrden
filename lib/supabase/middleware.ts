@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Public auth routes
-  const authRoutes = ['/login', '/accept-invite', '/auth/callback', '/join', '/pending', '/api/invite/public']
+  const authRoutes = ['/login', '/accept-invite', '/auth/callback', '/join', '/pending', '/api/invite/public', '/api/invite-links/validate']
   const isAuthRoute = authRoutes.some((r) => pathname.startsWith(r))
 
   // If no session and not on auth route → redirect to login
