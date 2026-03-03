@@ -1,0 +1,33 @@
+{
+  "name": "Hjortens Orden",
+  "short_name": "HO",
+  "description": "Eksklusiv platform for Hjortens Orden broderskab",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "social"],
+  "icons": [
+    {
+      "src": "/HOLogo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Hjem",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Begivenheder",
+      "short_name": "Events",
+      "url": "/events",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bekræft din e-mail — Hjortens Orden</title>
+  <style>
+    body { margin: 0; padding: 0; background: #0f1115; font-family: Georgia, serif; color: #e8e0d0; }
+    .wrapper { max-width: 520px; margin: 40px auto; background: #1c2028; border: 1px solid #2e3540; border-radius: 16px; overflow: hidden; }
+    .header { background: linear-gradient(135deg, #1a7a49 0%, #0f4a2c 100%); padding: 40px 40px 32px; text-align: center; }
+    .logo { width: 56px; height: 56px; background: rgba(207,168,74,0.15); border: 1px solid rgba(207,168,74,0.4); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 16px; }
+    .header h1 { margin: 0; font-size: 22px; color: #e8e0d0; letter-spacing: 0.02em; }
+    .header p { margin: 6px 0 0; font-size: 13px; color: rgba(232,224,208,0.6); font-family: Inter, Arial, sans-serif; }
+    .body { padding: 40px; }
+    .body p { font-family: Inter, Arial, sans-serif; font-size: 14px; line-height: 1.7; color: #c8bfa8; margin: 0 0 20px; }
+    .code-box { background: #0f1115; border: 1px solid rgba(207,168,74,0.3); border-radius: 12px; padding: 28px; text-align: center; margin: 28px 0; }
+    .code-box .label { font-family: Inter, Arial, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: #7a8693; margin-bottom: 12px; }
+    .code-box .code { font-family: 'Courier New', monospace; font-size: 40px; font-weight: 700; letter-spacing: 0.25em; color: #cfa84a; }
+    .code-box .expiry { font-family: Inter, Arial, sans-serif; font-size: 11px; color: #7a8693; margin-top: 10px; }
+    .divider { height: 1px; background: #2e3540; margin: 28px 0; }
+    .footer { padding: 24px 40px; text-align: center; }
+    .footer p { font-family: Inter, Arial, sans-serif; font-size: 11px; color: #7a8693; margin: 0; line-height: 1.6; }
+    .footer a { color: #cfa84a; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <div class="logo">🦌</div>
+      <h1>Hjortens Orden</h1>
+      <p>Broderskabet — Est. 2010</p>
+    </div>
+    <div class="body">
+      <p>Bekræft din e-mailadresse for at fuldføre din registrering hos Hjortens Orden. Brug nedenstående kode på hjemmesiden.</p>
+      <div class="code-box">
+        <div class="label">Din bekræftelseskode</div>
+        <div class="code">{{ .Token }}</div>
+        <div class="expiry">Koden udløber om 1 time</div>
+      </div>
+      <p>Gå til <a href="{{ .SiteURL }}/verify?email={{ .Email }}&type=signup" style="color:#cfa84a;">{{ .SiteURL }}/verify</a> og indtast koden for at aktivere din konto.</p>
+      <div class="divider"></div>
+      <p style="font-size:12px; color:#7a8693;">Har du ikke oprettet en konto? Du kan se bort fra denne e-mail.</p>
+    </div>
+    <div class="footer">
+      <p>Hjortens Orden · Kun for inviterede medlemmer<br /><a href="{{ .SiteURL }}">{{ .SiteURL }}</a></p>
+    </div>
+  </div>
+</body>
+</html>
