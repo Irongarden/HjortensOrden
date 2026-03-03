@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 // GET /api/invite-links/validate?token=...
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get('token')
   if (!token) return NextResponse.json({ valid: false, reason: 'missing_token' })
 
-  const admin = createAdminClient()
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  )
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: link, error } = await (admin as any)
     .from('public_invite_links')
@@ -15,7 +20,12 @@ export async function GET(req: NextRequest) {
     .eq('active', true)
     .maybeSingle()
 
-  if (error || !link) return NextResponse.json({ valid: false, reason: 'not_found' })
+  if (error) {
+    console.error('[validate] supabase error:', error.message)
+    return NextResponse.json({ valid: false, reason: 'db_error', detail: error.message })
+  }
+
+  if (!link) return NextResponse.json({ valid: false, reason: 'not_found' })
 
   if (link.expires_at && new Date(link.expires_at) < new Date()) {
     return NextResponse.json({ valid: false, expired: true, reason: 'expired' })
