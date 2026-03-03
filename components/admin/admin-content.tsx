@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { createBrowserClient } from '@supabase/ssr'
 import {
   Shield, ScrollText, Users, Activity, Clock, RefreshCw,
-  CheckCircle, Link2, Plus, Copy, Trash2, ToggleLeft, ToggleRight, Pencil, X, Upload,
+  CheckCircle, Link2, Plus, Copy, Trash2, ToggleLeft, ToggleRight, Pencil, X, Upload, AlertTriangle,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
@@ -379,6 +379,21 @@ export function AdminContent() {
   const [activeTab, setActiveTab] = useState<'overview' | 'pending' | 'links' | 'audit'>('overview')
   const [showCreateLink, setShowCreateLink] = useState(false)
   const [editingMember, setEditingMember] = useState<Profile | null>(null)
+  const [deleteConfirmMember, setDeleteConfirmMember] = useState<Profile | null>(null)
+
+  const deleteMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const res = await fetch(`/api/members/${memberId}`, { method: 'DELETE' })
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error ?? 'Fejl ved sletning') }
+    },
+    onSuccess: (_data, memberId) => {
+      qc.invalidateQueries({ queryKey: ['members', 'all'] })
+      const name = deleteConfirmMember?.full_name ?? 'Medlemmet'
+      toast.success(`${name} er blevet slettet`)
+      setDeleteConfirmMember(null)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
   const { data: auditLog = [], isLoading: auditLoading, refetch: refetchAudit } = useAuditLog()
   const { data: members = [], isLoading: membersLoading } = useAllMembers()
   const { data: inviteLinks = [], isLoading: linksLoading, refetch: refetchLinks } = useInviteLinks()
@@ -462,6 +477,36 @@ export function AdminContent() {
     <>
       {showCreateLink && <CreateLinkModal onClose={() => setShowCreateLink(false)} />}
       {editingMember && <EditMemberModal member={editingMember} onClose={() => setEditingMember(null)} />}
+      {deleteConfirmMember && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-charcoal border border-red-500/30 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-serif text-heading-sm text-parchment">Slet medlem</h3>
+                <p className="text-sm text-muted mt-0.5">Denne handling kan ikke fortrydes.</p>
+              </div>
+            </div>
+            <p className="text-sm text-parchment/80">
+              Er du sikker på, at du vil slette <span className="font-semibold text-parchment">{deleteConfirmMember.full_name}</span>?
+              Al data tilknyttet dette medlem vil blive permanent fjernet.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setDeleteConfirmMember(null)} disabled={deleteMemberMutation.isPending}>Annuller</Button>
+              <Button
+                variant="ghost"
+                className="bg-red-700 hover:bg-red-600 text-white"
+                loading={deleteMemberMutation.isPending}
+                onClick={() => deleteMemberMutation.mutate(deleteConfirmMember.id)}
+              >
+                Ja, slet permanent
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
         {/* Header */}
@@ -546,13 +591,22 @@ export function AdminContent() {
                         {m.joined_at ? new Date(m.joined_at).toLocaleDateString('da-DK') : '—'}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => setEditingMember(m)}
-                          className="p-1.5 rounded-lg text-muted hover:text-parchment hover:bg-surface transition-colors"
-                          title="Rediger bruger"
-                        >
-                          <Pencil size={14} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setEditingMember(m)}
+                            className="p-1.5 rounded-lg text-muted hover:text-parchment hover:bg-surface transition-colors"
+                            title="Rediger bruger"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmMember(m)}
+                            className="p-1.5 rounded-lg text-muted hover:text-red-400 hover:bg-red-900/10 transition-colors"
+                            title="Slet bruger"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
