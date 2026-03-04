@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
+import nodemailer from 'nodemailer'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +15,18 @@ const MONTH_NAMES = [
 function monthLabel(month: string) {
   const [year, m] = month.split('-')
   return `${MONTH_NAMES[parseInt(m, 10) - 1]} ${year}`
+}
+
+function getTransporter() {
+  const user = process.env.SMTP_USER
+  const pass = process.env.SMTP_PASS
+  if (!user || !pass) return null
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST ?? 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT ?? 587),
+    secure: false,
+    auth: { user, pass },
+  })
 }
 
 function buildEmail(params: {
@@ -111,9 +124,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Adgang nægtet — kun kasserer eller højere' }, { status: 403 })
   }
 
-  if (!process.env.RESEND_API_KEY) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     return NextResponse.json(
-      { error: 'Email-service ikke konfigureret. Tilføj RESEND_API_KEY i miljøvariablerne (se .env.local.example).' },
+      { error: 'Email-service ikke konfigureret. Tilføj SMTP_USER og SMTP_PASS i miljøvariablerne.' },
       { status: 503 },
     )
   }
@@ -148,35 +161,28 @@ export async function POST(req: NextRequest) {
 
   const unpaid = members.filter((m: { id: string }) => !paidIds.has(m.id))
   const label = monthLabel(month)
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Hjortens Orden <onboarding@resend.dev>'
+  const fromName = process.env.SMTP_FROM_NAME ?? 'Hjortens Orden'
+  const fromEmail = process.env.SMTP_USER ?? ''
+  const from = `${fromName} <${fromEmail}>`
 
+  const transporter = getTransporter()!
   let sent = 0
   const errors: string[] = []
 
   for (const member of unpaid as { id: string; full_name: string; email: string }[]) {
     const html = buildEmail({ memberName: member.full_name, month: label, fee, kassererName, kassererEmail })
-
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [member.email],
+    try {
+      await transporter.sendMail({
+        from,
+        to: member.email,
         subject: `Påmindelse: Kontingent for ${label} afventer betaling`,
         html,
-      }),
-    })
-
-    if (res.ok) {
+      })
       sent++
-    } else {
-      const errBody = await res.json().catch(() => ({ message: 'Ukendt fejl' }))
-      const errMsg = errBody?.message ?? errBody?.name ?? JSON.stringify(errBody)
-      errors.push(`${member.full_name} (${member.email}): ${errMsg}`)
-      console.error('[send-reminders] Resend error:', res.status, errMsg)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      errors.push(`${member.full_name} (${member.email}): ${msg}`)
+      console.error('[send-reminders] SMTP error:', msg)
     }
   }
 
