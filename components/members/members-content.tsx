@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RoleBadge, StatusBadge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
-import { PageLoader } from '@/components/ui/skeleton'
+import { Skeleton, SkeletonRow } from '@/components/ui/skeleton'
 import { InviteModal } from './invite-modal'
 import { MemberProfileModal } from './member-profile-modal'
 import { MemberMap } from './member-map'
@@ -39,7 +39,19 @@ export function MembersContent() {
     )
   })
 
-  if (isLoading) return <PageLoader />
+  if (isLoading) return (
+    <div className="space-y-6">
+      <div className="flex items-end justify-between page-header-row">
+        <div>
+          <p className="text-label-sm text-muted uppercase tracking-widest mb-1">Ordenens</p>
+          <h1 className="font-serif text-display-sm text-parchment">Medlemmer</h1>
+        </div>
+      </div>
+      <div className="bg-charcoal border border-border rounded-xl divide-y divide-border">
+        {[...Array(6)].map((_, i) => <SkeletonRow key={i} />)}
+      </div>
+    </div>
+  )
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">

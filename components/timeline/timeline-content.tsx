@@ -7,7 +7,7 @@ import { Plus, AlertTriangle } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
-import { PageLoader } from '@/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { TimelineEntry } from '@/components/timeline/timeline-entry'
 import { TimelineEntryModal } from '@/components/timeline/timeline-entry-modal'
 import type { Database } from '@/lib/types/supabase'
@@ -56,7 +56,31 @@ export function TimelineContent() {
     },
   })
 
-  if (isLoading) return <PageLoader />
+  if (isLoading) return (
+    <div className="space-y-6">
+      <div className="flex items-end justify-between page-header-row">
+        <div>
+          <p className="text-label-sm text-muted uppercase tracking-widest mb-1">Ordenens</p>
+          <h1 className="font-serif text-display-sm text-parchment">Tidslinje</h1>
+        </div>
+      </div>
+      <div className="relative">
+        <div className="absolute left-6 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-gold/40 via-border to-transparent" />
+        <div className="space-y-8 pl-14 md:pl-0">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className={`md:flex ${i % 2 === 0 ? 'md:justify-end md:pr-[calc(50%+2rem)]' : 'md:pl-[calc(50%+2rem)]'}`}>
+              <div className="bg-charcoal border border-border rounded-xl p-5 space-y-2 md:w-80">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 
   // Group entries by year
   const byYear: Record<number, TEntry[]> = {}

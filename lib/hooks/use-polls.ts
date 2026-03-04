@@ -10,6 +10,7 @@ const supabase = createClient()
 export function usePolls(status?: PollStatus) {
   return useQuery({
     queryKey: ['polls', status],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       let query = supabase

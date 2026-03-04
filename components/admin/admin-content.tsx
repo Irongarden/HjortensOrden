@@ -374,7 +374,7 @@ function CreateLinkModal({ onClose }: { onClose: () => void }) {
 
 // ─── Admin Content ────────────────────────────────────────────────────────────
 export function AdminContent() {
-  const { can } = useAuthStore()
+  const { can, isLoading: authLoading } = useAuthStore()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState<'overview' | 'pending' | 'links' | 'audit'>('overview')
   const [showCreateLink, setShowCreateLink] = useState(false)
@@ -443,6 +443,8 @@ export function AdminContent() {
     navigator.clipboard.writeText(url)
     toast.success('Link kopieret!')
   }
+
+  if (authLoading) return <PageLoader />
 
   if (!can('manage_settings')) {
     return (

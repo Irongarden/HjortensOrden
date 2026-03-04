@@ -6,7 +6,7 @@ import { Plus } from 'lucide-react'
 import { usePolls } from '@/lib/hooks/use-polls'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
-import { PageLoader } from '@/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { PollCard } from './poll-card'
 import { CreatePollModal } from './create-poll-modal'
 import type { PollStatus } from '@/lib/types'
@@ -28,8 +28,6 @@ export function PollsContent() {
   const { can } = useAuthStore()
 
   const { data: polls = [], isLoading } = usePolls(tab as PollStatus)
-
-  if (isLoading) return <PageLoader />
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -63,7 +61,19 @@ export function PollsContent() {
         ))}
       </div>
 
-      {polls.length === 0 ? (
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-charcoal border border-border rounded-xl p-5 space-y-3">
+              <Skeleton className="h-5 w-3/4" />
+              <div className="space-y-2">
+                {[...Array(3)].map((_, j) => <Skeleton key={j} className="h-8 w-full rounded-lg" />)}
+              </div>
+              <Skeleton className="h-4 w-1/3" />
+            </div>
+          ))}
+        </div>
+      ) : polls.length === 0 ? (
         <div className="text-center py-20 text-muted">
           <p className="text-heading-sm mb-2 font-serif text-parchment/60">
             {tab === 'active' ? 'Ingen aktive afstemninger' : 'Ingen afsluttede afstemninger'}

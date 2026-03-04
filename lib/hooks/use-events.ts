@@ -10,6 +10,7 @@ const supabase = createClient()
 export function useEvents(month?: string) {
   return useQuery({
     queryKey: ['events', month],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       let query = supabase
         .from('events')

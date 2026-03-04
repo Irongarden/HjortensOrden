@@ -9,7 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { PageLoader } from '@/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { AlbumView } from './album-view'
 import { UploadModal } from './upload-modal'
 import { formatDate } from '@/lib/utils'
@@ -158,7 +158,27 @@ export function GalleryContent() {
   const canManage = (album: GalleryAlbum) =>
     can('manage_albums') || album.created_by === profile?.id
 
-  if (isLoading) return <PageLoader />
+  if (isLoading) return (
+    <div className="space-y-6">
+      <div className="flex items-end justify-between page-header-row">
+        <div>
+          <p className="text-label-sm text-muted uppercase tracking-widest mb-1">Ordenens</p>
+          <h1 className="font-serif text-display-sm text-parchment">Galleri</h1>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="bg-charcoal border border-border rounded-xl overflow-hidden">
+            <Skeleton className="aspect-square w-full" />
+            <div className="p-3 space-y-1.5">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">

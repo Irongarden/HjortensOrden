@@ -10,7 +10,7 @@ import { Plus, List, CalendarDays } from 'lucide-react'
 import { useEvents } from '@/lib/hooks/use-events'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
-import { PageLoader } from '@/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EventModal } from './event-modal'
 import { EventDetailModal } from './event-detail-modal'
 import { EventListView } from './event-list-view'
@@ -120,7 +120,18 @@ export function EventsContent() {
 
       {/* Calendar / List */}
       {isLoading ? (
-        <PageLoader />
+        <div className="bg-charcoal border border-border rounded-xl p-4 space-y-3" style={{ minHeight: 680 }}>
+          <div className="flex items-center justify-between mb-4">
+            <Skeleton className="h-8 w-24 rounded-lg" />
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-8 w-24 rounded-lg" />
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {[...Array(35)].map((_, i) => (
+              <Skeleton key={i} className="aspect-square rounded-lg" />
+            ))}
+          </div>
+        </div>
       ) : viewMode === 'calendar' ? (
         <div className="bg-charcoal border border-border rounded-xl p-4 shadow-card" style={{ minHeight: 680 }}>
           <Calendar

@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { useMembers } from '@/lib/hooks/use-members'
-import { PageLoader } from '@/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar } from '@/components/ui/avatar'
 import { RoleBadge } from '@/components/ui/badge'
 import { getMembershipYears } from '@/lib/utils'
@@ -33,7 +33,28 @@ const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transiti
 export function HierarchyContent() {
   const { data: members = [], isLoading } = useMembers()
 
-  if (isLoading) return <PageLoader />
+  if (isLoading) return (
+    <div className="space-y-8">
+      <div>
+        <p className="text-label-sm text-muted uppercase tracking-widest mb-1">Ordenens</p>
+        <h1 className="font-serif text-display-sm text-parchment">Hierarki</h1>
+      </div>
+      {[...Array(3)].map((_, i) => (
+        <div key={i} className="space-y-4">
+          <Skeleton className="h-6 w-48 rounded-full" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {[...Array(2)].map((_, j) => (
+              <div key={j} className="bg-charcoal border border-border rounded-xl p-4 space-y-3">
+                <Skeleton className="w-16 h-16 rounded-full mx-auto" />
+                <Skeleton className="h-4 w-3/4 mx-auto" />
+                <Skeleton className="h-5 w-1/2 mx-auto rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 
   const activeMembers = members.filter((m) => m.status === 'active')
 

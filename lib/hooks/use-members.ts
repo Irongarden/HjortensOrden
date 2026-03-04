@@ -29,6 +29,7 @@ export function useProfile() {
 export function useMembers() {
   return useQuery({
     queryKey: ['members'],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
