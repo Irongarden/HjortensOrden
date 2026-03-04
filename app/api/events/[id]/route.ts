@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { sendEventNotification } from '../_lib/notify'
 
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,10 +47,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { error } = await adminSupabase.from('events').update(body).eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+  // Auto-send notification to all members when an event is first published
+  if (body.status === 'published' && event?.status !== 'published') {
+    // Fire-and-forget — don't block the response on email delivery
+    sendEventNotification({
+      eventId:       params.id,
+      sentBy:        caller.userId,
+      triggerType:   'auto_publish',
+      skipRateLimit: true, // First publish is always allowed
+    }).catch((err) => console.error('[event-notify] auto_publish failed:', err))
+  }
+
   // Auto-create timeline entry when event is marked as completed
-  if (body.status === 'completed' && event?.status !== 'completed') {
-    // Only insert if no timeline entry already exists for this event
-    const { data: existing } = await adminSupabase
+  if (body.status === 'completed' && event?.status !== 'completed') {    // Only insert if no timeline entry already exists for this event    const { data: existing } = await adminSupabase
       .from('timeline_entries')
       .select('id')
       .eq('event_id', params.id)

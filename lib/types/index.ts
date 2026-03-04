@@ -34,6 +34,7 @@ export type NotificationType =
   | 'event_created'
   | 'event_cancelled'
   | 'event_rsvp'
+  | 'event_reminder'
   | 'poll_created'
   | 'poll_closing'
   | 'payment_reminder'
@@ -242,6 +243,17 @@ export interface Notification {
   read: boolean
   action_url: string | null
   created_at: string
+}
+
+/** One row in the event_notifications log table. */
+export interface EventNotification {
+  id: string
+  event_id: string
+  sent_by: string | null
+  sent_at: string
+  recipient_count: number
+  trigger_type: 'auto_publish' | 'manual'
+  sender?: { full_name: string; avatar_url: string | null } | null
 }
 
 export interface AuditEntry {

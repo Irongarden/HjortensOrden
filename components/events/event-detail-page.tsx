@@ -6,12 +6,15 @@ import { motion } from 'framer-motion'
 import {
   CalendarDays, MapPin, Users, DollarSign, Pencil, Trash2,
   ArrowLeft, Clock, Check, X as XIcon, HelpCircle, Images,
+  Bell, BellRing, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import toast from 'react-hot-toast'
-import { useEvent, useRSVP, useDeleteEvent } from '@/lib/hooks/use-events'
+import { formatDistanceToNow, differenceInDays } from 'date-fns'
+import { da } from 'date-fns/locale'
+import { useEvent, useRSVP, useDeleteEvent, useEventNotifications, useSendEventNotification } from '@/lib/hooks/use-events'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { AvatarGroup, Avatar } from '@/components/ui/avatar'
@@ -109,11 +112,17 @@ export function EventDetailPage({ id }: { id: string }) {
   const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [showAlbumPicker, setShowAlbumPicker] = useState(false)
+  const [showNotifLog, setShowNotifLog] = useState(false)
+  const [notifConfirmOpen, setNotifConfirmOpen] = useState(false)
 
   // Album hooks must be called unconditionally (Rules of Hooks)
   const { data: linkedAlbums = [] } = useEventAlbums(id)
   const { data: allAlbums = [], isLoading: allAlbumsLoading } = useAllAlbumsForPicker(showAlbumPicker)
   const linkAlbumToEvent = useLinkAlbumToEvent()
+
+  // Notification hooks (unconditional)
+  const { data: notifHistory = [] } = useEventNotifications(id)
+  const sendNotif = useSendEventNotification(id)
 
   if (isLoading) return (
     <div className="space-y-6 max-w-3xl">
@@ -147,6 +156,14 @@ export function EventDetailPage({ id }: { id: string }) {
   const totalExpenses = event.expenses?.reduce((s, e) => s + e.amount_dkk, 0) ?? 0
   const canLinkAlbum = can('manage_albums') || isCreator || can('edit_events')
 
+  // Notification helpers
+  const canManageNotif = (can('edit_events') || isCreator) && event.status === 'published'
+  const lastNotif = notifHistory[0] ?? null
+  const daysSinceLastNotif = lastNotif
+    ? differenceInDays(new Date(), new Date(lastNotif.sent_at))
+    : null
+  const isRateLimited = daysSinceLastNotif !== null && daysSinceLastNotif < 7
+
   const handleDelete = async () => {
     router.push('/events')
     await deleteEvent.mutateAsync(event.id)
@@ -161,6 +178,23 @@ export function EventDetailPage({ id }: { id: string }) {
             <ArrowLeft size={16} /> Tilbage
           </button>
           <div className="flex gap-2">
+            {canManageNotif && (
+              <Button
+                variant="outline"
+                size="sm"
+                loading={sendNotif.isPending}
+                disabled={isRateLimited}
+                title={
+                  isRateLimited
+                    ? `Sendt for ${daysSinceLastNotif} dage siden — vent til om ${7 - daysSinceLastNotif!} dage`
+                    : 'Send notifikation til alle aktive medlemmer'
+                }
+                onClick={() => setNotifConfirmOpen(true)}
+              >
+                <BellRing size={14} />
+                {isRateLimited ? `Notificeret for ${daysSinceLastNotif}d siden` : 'Send notifikation'}
+              </Button>
+            )}
             {(can('edit_events') || isCreator) && (
               <Button variant="ghost" size="sm" onClick={() => setEditOpen(true)}>
                 <Pencil size={14} /> Rediger
@@ -289,6 +323,84 @@ export function EventDetailPage({ id }: { id: string }) {
                 </div>
               </div>
             )}
+            {/* Notification log */}
+            {canManageNotif && (
+              <div className="bg-charcoal border border-border rounded-2xl overflow-hidden">
+                <button
+                  onClick={() => setShowNotifLog((v) => !v)}
+                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-surface/30 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Bell size={15} className="text-gold/60" />
+                    <span className="font-serif text-heading-xs text-parchment">Notifikationslog</span>
+                    {notifHistory.length > 0 && (
+                      <span className="text-xs text-muted bg-surface px-2 py-0.5 rounded-full">
+                        {notifHistory.length} {notifHistory.length === 1 ? 'udsendelse' : 'udsendelser'}
+                      </span>
+                    )}
+                  </div>
+                  {showNotifLog ? <ChevronUp size={14} className="text-muted" /> : <ChevronDown size={14} className="text-muted" />}
+                </button>
+
+                {showNotifLog && (
+                  <div className="border-t border-border/60 px-6 pb-5 pt-4">
+                    {notifHistory.length === 0 ? (
+                      <div className="text-center py-4 text-muted text-sm">
+                        <Bell size={24} className="mx-auto mb-2 opacity-20" />
+                        <p>Ingen notifikationer sendt endnu</p>
+                        <p className="text-xs mt-1 opacity-60">Notifikationer sendes automatisk ved publicering.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {notifHistory.map((n) => (
+                          <div key={n.id} className="flex items-start gap-3 p-3 rounded-xl bg-surface/50 border border-border/50">
+                            <div className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
+                              n.trigger_type === 'auto_publish' ? 'bg-gold/15' : 'bg-blue-900/40'
+                            }`}>
+                              {n.trigger_type === 'auto_publish'
+                                ? <BellRing size={11} className="text-gold" />
+                                : <Bell size={11} className="text-blue-400" />
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm text-parchment font-medium">
+                                  {n.recipient_count} {n.recipient_count === 1 ? 'modtager' : 'modtagere'}
+                                </span>
+                                <span className={`text-xs px-1.5 py-0.5 rounded-full border ${
+                                  n.trigger_type === 'auto_publish'
+                                    ? 'text-gold/80 bg-gold/10 border-gold/20'
+                                    : 'text-blue-400 bg-blue-900/20 border-blue-800/30'
+                                }`}>
+                                  {n.trigger_type === 'auto_publish' ? 'Auto-publicering' : 'Manuel'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-xs text-muted">
+                                  {formatDistanceToNow(new Date(n.sent_at), { addSuffix: true, locale: da })}
+                                </p>
+                                {n.sender && (
+                                  <>
+                                    <span className="text-muted/40 text-xs">·</span>
+                                    <p className="text-xs text-muted">{n.sender.full_name}</p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {isRateLimited && (
+                          <p className="text-xs text-muted/60 text-center pt-1">
+                            Næste notifikation kan sendes om {7 - daysSinceLastNotif!} {(7 - daysSinceLastNotif!) === 1 ? 'dag' : 'dage'}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Billeder */}
             <div className="bg-charcoal border border-border rounded-2xl p-6">
               <div className="flex items-center justify-between mb-4">
@@ -429,6 +541,20 @@ export function EventDetailPage({ id }: { id: string }) {
         confirmLabel="Slet begivenhed"
         danger
         loading={deleteEvent.isPending}
+      />
+
+      <ConfirmModal
+        open={notifConfirmOpen}
+        onClose={() => setNotifConfirmOpen(false)}
+        onConfirm={() => {
+          setNotifConfirmOpen(false)
+          sendNotif.mutate()
+          setShowNotifLog(true)
+        }}
+        title="Send notifikation til alle?"
+        description={`Alle aktive medlemmer modtager en e-mail og en in-app notifikation om "${event.title}". Du kan maks. sende én gang om ugen.`}
+        confirmLabel="Send notifikation"
+        loading={sendNotif.isPending}
       />
     </>
   )

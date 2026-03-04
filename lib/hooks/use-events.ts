@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Event, EventParticipant, RSVPStatus } from '@/lib/types'
+import { Event, EventParticipant, RSVPStatus, EventNotification } from '@/lib/types'
 import toast from 'react-hot-toast'
 import { useAuthReady } from './use-auth-ready'
 
@@ -177,6 +177,42 @@ export function useRSVP() {
       qc.invalidateQueries({ queryKey: ['events', eventId] })
       qc.invalidateQueries({ queryKey: ['events'] })
       toast.success('RSVP registreret')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+// ── Notification hooks ───────────────────────────────────────────────────────
+
+/** Fetches the notification history (log) for a specific event. */
+export function useEventNotifications(eventId: string) {
+  const authReady = useAuthReady()
+  return useQuery({
+    queryKey: ['event-notifications', eventId],
+    staleTime: 30_000,
+    enabled: authReady && !!eventId,
+    queryFn: async (): Promise<EventNotification[]> => {
+      const res = await fetch(`/api/events/${eventId}/notify`)
+      if (!res.ok) throw new Error('Kunne ikke hente notifikationslog')
+      const { history } = await res.json()
+      return history as EventNotification[]
+    },
+  })
+}
+
+/** Sends a manual notification for an event to all active members. */
+export function useSendEventNotification(eventId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/events/${eventId}/notify`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Fejl ved afsendelse')
+      return json as { sent: number; recipientCount: number }
+    },
+    onSuccess: ({ recipientCount }) => {
+      qc.invalidateQueries({ queryKey: ['event-notifications', eventId] })
+      toast.success(`Notifikation sendt til ${recipientCount} medlem${recipientCount !== 1 ? 'mer' : ''}`)
     },
     onError: (e: Error) => toast.error(e.message),
   })
