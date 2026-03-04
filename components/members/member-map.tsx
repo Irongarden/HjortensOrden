@@ -17,6 +17,8 @@ interface MemberMapProps {
   showMemberList?: boolean
   /** Extra pins to display (e.g. event/proposal locations) */
   extraMarkers?: ExtraMarker[]
+  /** Extra legend entries shown in the header */
+  extraLegend?: Array<{ color: string; label: string }>
 }
 
 export interface ExtraMarker {
@@ -24,6 +26,10 @@ export interface ExtraMarker {
   lng: number
   title: string
   subtitle?: string
+  /** Border/accent colour for the pin (default gold #cfa84a) */
+  color?: string
+  /** Emoji icon inside the pin (default 🏰) */
+  icon?: string
 }
 
 export function MemberMap({
@@ -32,6 +38,7 @@ export function MemberMap({
   showHeader = true,
   showMemberList = true,
   extraMarkers = [],
+  extraLegend = [],
 }: MemberMapProps) {
   const { data: members = [] } = useMembers()
   const qc = useQueryClient()
@@ -126,11 +133,13 @@ export function MemberMap({
     extraMarkersRef.current = []
 
     extras.forEach((em) => {
+      const pinColor = em.color ?? '#cfa84a'
+      const pinIcon  = em.icon  ?? '🏰'
       const icon = L.divIcon({
         className: '',
         html: `<div style="display:flex;flex-direction:column;align-items:center">
-          <div style="width:34px;height:34px;border-radius:6px;border:2px solid #cfa84a;background:#1a1209;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:17px">🏰</div>
-          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #cfa84a;margin-top:-1px"></div>
+          <div style="width:34px;height:34px;border-radius:6px;border:2px solid ${pinColor};background:#1a1209;box-shadow:0 2px 8px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:17px">${pinIcon}</div>
+          <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid ${pinColor};margin-top:-1px"></div>
         </div>`,
         iconSize: [34, 42],
         iconAnchor: [17, 42],
@@ -138,7 +147,7 @@ export function MemberMap({
       })
       const popup = `
         <div style="font-family:Georgia,serif;min-width:150px;padding:4px 2px">
-          <strong style="font-size:13px;color:#2a1f0e">🏰 ${em.title}</strong>
+          <strong style="font-size:13px;color:#2a1f0e">${pinIcon} ${em.title}</strong>
           ${em.subtitle ? `<br/><span style="font-size:11px;color:#666">${em.subtitle}</span>` : ''}
         </div>`
       const marker = L.marker([em.lat, em.lng], { icon }).addTo(map).bindPopup(popup)
@@ -227,6 +236,12 @@ export function MemberMap({
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full border-2 border-gold inline-block" /> Bopæl
             </span>
+            {extraLegend.map((leg) => (
+              <span key={leg.label} className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-md border-2 inline-block" style={{ borderColor: leg.color }} />
+                {leg.label}
+              </span>
+            ))}
           </div>
         </div>
       )}

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Search, UserPlus, Map, Users } from 'lucide-react'
 import { useMembers } from '@/lib/hooks/use-members'
+import { useEvents } from '@/lib/hooks/use-events'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ import { Skeleton, SkeletonRow } from '@/components/ui/skeleton'
 import { InviteModal } from './invite-modal'
 import { MemberProfileModal } from './member-profile-modal'
 import { MemberMap } from './member-map'
+import type { ExtraMarker } from './member-map'
 import { getMembershipYears } from '@/lib/utils'
 import type { Profile } from '@/lib/types'
 
@@ -29,6 +31,46 @@ export function MembersContent() {
   const [tab, setTab] = useState<ViewTab>('list')
 
   const { data: members = [], isLoading } = useMembers()
+  const { data: events  = [] } = useEvents()
+  const [eventMarkers, setEventMarkers] = useState<ExtraMarker[]>([])
+
+  // Geocode completed event locations and turn them into map pins
+  useEffect(() => {
+    const completed = events.filter((e) => e.status === 'completed' && e.location)
+    if (completed.length === 0) { setEventMarkers([]); return }
+
+    let cancelled = false
+    ;(async () => {
+      const markers: ExtraMarker[] = []
+      for (const event of completed) {
+        if (cancelled) break
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(event.location!)}&format=json&limit=1&countrycodes=dk,se,no,de,gb`,
+            { headers: { 'Accept-Language': 'da', 'User-Agent': 'HjortensOrden/1.0' } },
+          )
+          const results = await res.json()
+          if (results.length > 0) {
+            markers.push({
+              lat:      parseFloat(results[0].lat),
+              lng:      parseFloat(results[0].lon),
+              title:    event.title,
+              subtitle: event.location ?? undefined,
+              color:    '#4ade80',
+              icon:     '🦌',
+            })
+          }
+          // Nominatim rate-limit: 1 request/second
+          await new Promise((r) => setTimeout(r, 350))
+        } catch { /* ignore individual failures */ }
+      }
+      if (!cancelled) setEventMarkers(markers)
+    })()
+
+    return () => { cancelled = true }
+  // Re-run only when the list of completed events changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events.filter((e) => e.status === 'completed').map((e) => e.id).join(',')])
 
   const filtered = members.filter((m) => {
     const q = search.toLowerCase()
@@ -87,7 +129,14 @@ export function MembersContent() {
       </div>
 
       {tab === 'map' ? (
-        <MemberMap />
+        <MemberMap
+          extraMarkers={eventMarkers}
+          extraLegend={
+            eventMarkers.length > 0
+              ? [{ color: '#4ade80', label: `Afholdt (${eventMarkers.length})` }]
+              : []
+          }
+        />
       ) : (
         <>
           {/* Search */}
