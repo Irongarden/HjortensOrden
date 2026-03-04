@@ -30,6 +30,7 @@ import { formatDKK, formatDate, getMonthKey } from '@/lib/utils'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { format, addMonths } from 'date-fns'
+import toast from 'react-hot-toast'
 import type { TreasuryTransaction, RecurringTransaction } from '@/lib/types'
 
 type TabKey = 'overview' | 'payments' | 'transactions' | 'recurring'
@@ -43,6 +44,8 @@ export function TreasuryContent() {
   const [feeEditing, setFeeEditing] = useState(false)
   const [feeInput, setFeeInput] = useState('')
   const [balCorrOpen, setBalCorrOpen] = useState(false)
+  const [registeringAll, setRegisteringAll] = useState(false)
+  const [registeringId, setRegisteringId] = useState<string | null>(null)
   const { can } = useAuthStore()
 
   const { data: balance, isLoading: balLoading } = useTreasuryBalance()
@@ -218,14 +221,27 @@ export function TreasuryContent() {
                 <Button
                   variant="outline"
                   size="sm"
-                  loading={registerPayment.isPending}
+                  loading={registeringAll}
                   onClick={async () => {
                     const unpaid = activeMembers.filter(
                       (m) => !payments.find((p) => p.user_id === m.id && p.status === 'paid')
                     )
-                    for (const m of unpaid) {
-                      await registerPayment.mutateAsync({ userId: m.id, month: payMonth, memberName: m.full_name })
+                    if (unpaid.length === 0) {
+                      toast('Alle er allerede registreret som betalt', { icon: '✓' })
+                      return
                     }
+                    setRegisteringAll(true)
+                    let count = 0
+                    for (const m of unpaid) {
+                      try {
+                        await registerPayment.mutateAsync({ userId: m.id, month: payMonth, memberName: m.full_name })
+                        count++
+                      } catch {
+                        // continue even if one fails
+                      }
+                    }
+                    setRegisteringAll(false)
+                    toast.success(`${count} af ${unpaid.length} betalinger registreret`)
                   }}
                 >
                   <Users size={13} /> Modtag alle
@@ -306,8 +322,15 @@ export function TreasuryContent() {
                       <Button
                         variant="green"
                         size="sm"
-                        loading={registerPayment.isPending}
-                        onClick={() => registerPayment.mutate({ userId: member.id, month: payMonth, memberName: member.full_name })}
+                        loading={registeringId === member.id}
+                        onClick={async () => {
+                          setRegisteringId(member.id)
+                          try {
+                            await registerPayment.mutateAsync({ userId: member.id, month: payMonth, memberName: member.full_name })
+                          } finally {
+                            setRegisteringId(null)
+                          }
+                        }}
                       >
                         Registrer betaling
                       </Button>

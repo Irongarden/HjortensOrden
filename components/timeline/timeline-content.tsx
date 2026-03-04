@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Plus } from 'lucide-react'
+import { Plus, AlertTriangle } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
@@ -34,9 +34,27 @@ function useTimelineEntries() {
 
 export function TimelineContent() {
   const { can } = useAuthStore()
+  const qc = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
   const [editEntry, setEditEntry] = useState<TEntry | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<TEntry | null>(null)
   const { data: entries = [], isLoading } = useTimelineEntries()
+
+  const deleteEntry = useMutation({
+    mutationFn: async (id: string) => {
+      const supabase = createBrowserClient<Database>(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('timeline_entries').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['timeline'] })
+      // toast is shown inline in the confirmation dialog close
+    },
+  })
 
   if (isLoading) return <PageLoader />
 
@@ -91,7 +109,9 @@ export function TimelineContent() {
                     entry={entry}
                     side={idx % 2 === 0 ? 'left' : 'right'}
                     canEdit={can('manage_timeline')}
+                    canDelete={can('delete_timeline')}
                     onEdit={() => setEditEntry(entry)}
+                    onDelete={() => setDeleteConfirm(entry)}
                   />
                 ))}
               </div>
@@ -105,6 +125,45 @@ export function TimelineContent() {
         entry={editEntry ?? undefined}
         onClose={() => { setCreateOpen(false); setEditEntry(null) }}
       />
+
+      {/* Delete confirmation dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-obsidian/80 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
+          <div className="relative z-10 bg-charcoal border border-red-800/40 rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-9 h-9 rounded-full bg-red-900/30 border border-red-800/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <AlertTriangle size={16} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-serif text-parchment font-semibold mb-1">Slet kapitel</h3>
+                <p className="text-sm text-muted leading-relaxed">
+                  Er du sikker på, at du vil slette{' '}
+                  <span className="text-parchment font-medium">"{deleteConfirm.title}"</span>?
+                  Handlingen kan ikke fortrydes.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(null)}>
+                Annuller
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                loading={deleteEntry.isPending}
+                onClick={async () => {
+                  await deleteEntry.mutateAsync(deleteConfirm.id)
+                  setDeleteConfirm(null)
+                }}
+              >
+                Slet kapitel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
-import { Edit2, BookOpen, Award, Anchor, Sword, Star } from 'lucide-react'
+import { Edit2, Trash2, BookOpen, Award, Anchor, Sword, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import { formatDate } from '@/lib/utils'
@@ -30,10 +30,12 @@ interface TimelineEntryProps {
   entry: TEntry
   side: 'left' | 'right'
   canEdit: boolean
+  canDelete: boolean
   onEdit: () => void
+  onDelete: () => void
 }
 
-export function TimelineEntry({ entry, side, canEdit, onEdit }: TimelineEntryProps) {
+export function TimelineEntry({ entry, side, canEdit, canDelete, onEdit, onDelete }: TimelineEntryProps) {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '-80px 0px' })
 
@@ -57,14 +59,28 @@ export function TimelineEntry({ entry, side, canEdit, onEdit }: TimelineEntryPro
               <span className="capitalize">{entry.type.replace('_', ' ')}</span>
             </div>
             {canEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7"
-                onClick={(e) => { e.stopPropagation(); onEdit() }}
-              >
-                <Edit2 size={13} />
-              </Button>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={(e) => { e.stopPropagation(); onEdit() }}
+                  title="Rediger"
+                >
+                  <Edit2 size={13} />
+                </Button>
+                {canDelete && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted hover:text-red-400 hover:bg-red-400/10"
+                    onClick={(e) => { e.stopPropagation(); onDelete() }}
+                    title="Slet"
+                  >
+                    <Trash2 size={13} />
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
