@@ -46,7 +46,6 @@ export function TreasuryContent() {
   const [balCorrOpen, setBalCorrOpen] = useState(false)
   const [registeringAll, setRegisteringAll] = useState(false)
   const [registeringId, setRegisteringId] = useState<string | null>(null)
-  const [registeringAuto, setRegisteringAuto] = useState(false)
   const [sendingReminders, setSendingReminders] = useState(false)
   const { can } = useAuthStore()
 
@@ -68,9 +67,6 @@ export function TreasuryContent() {
   const activeMembers = members.filter((m) => m.status === 'active')
   const paidThisMonth = payments.filter((p) => p.status === 'paid').length
   const pendingThisMonth = activeMembers.length - paidThisMonth
-  const autoPayUnpaid = activeMembers.filter(
-    (m) => m.auto_pay && !payments.find((p) => p.user_id === m.id && p.status === 'paid'),
-  )
 
   const currentFee = Number(feeSetting?.monthly_fee_dkk ?? 300)
 
@@ -245,28 +241,6 @@ export function TreasuryContent() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-serif text-heading-sm text-parchment">Kontingenter</h3>
             <div className="flex items-center gap-2">
-              {can('register_payments') && autoPayUnpaid.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  loading={registeringAuto}
-                  title="Registrer betaling for alle auto-betaling-medlemmer"
-                  onClick={async () => {
-                    setRegisteringAuto(true)
-                    let count = 0
-                    for (const m of autoPayUnpaid) {
-                      try {
-                        await registerPayment.mutateAsync({ userId: m.id, month: payMonth, memberName: m.full_name })
-                        count++
-                      } catch { /* continue */ }
-                    }
-                    setRegisteringAuto(false)
-                    toast.success(`${count} auto-betaling${count !== 1 ? 'er' : ''} registreret`)
-                  }}
-                >
-                  <Zap size={13} /> Kør auto ({autoPayUnpaid.length})
-                </Button>
-              )}
               {can('register_payments') && pendingThisMonth > 0 && (
                 <Button
                   variant="outline"
