@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { createBrowserClient } from '@supabase/ssr'
 import {
   Shield, ScrollText, Users, Activity, Clock, RefreshCw,
-  CheckCircle, Link2, Plus, Copy, Trash2, ToggleLeft, ToggleRight, Pencil, X, Upload, AlertTriangle,
+  CheckCircle, XCircle, Link2, Plus, Copy, Trash2, ToggleLeft, ToggleRight, Pencil, X, Upload, AlertTriangle,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
@@ -390,6 +390,7 @@ export function AdminContent() {
   const [showCreateLink, setShowCreateLink] = useState(false)
   const [editingMember, setEditingMember] = useState<Profile | null>(null)
   const [deleteConfirmMember, setDeleteConfirmMember] = useState<Profile | null>(null)
+  const [rejectConfirmMember, setRejectConfirmMember] = useState<Profile | null>(null)
 
   const deleteMemberMutation = useMutation({
     mutationFn: async (memberId: string) => {
@@ -420,7 +421,21 @@ export function AdminContent() {
       })
       if (!res.ok) { const j = await res.json(); throw new Error(j.error ?? 'Fejl ved godkendelse') }
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['members', 'all'] }); toast.success('Medlem godkendt') },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['members', 'all'] }); toast.success('Medlem godkendt — velkomst-email sendt') },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // Reject pending member (deletes + sends rejection email)
+  const rejectMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const res = await fetch(`/api/admin/members/${memberId}`, { method: 'DELETE' })
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error ?? 'Fejl ved afvisning') }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members', 'all'] })
+      toast.success('Ansøgning afvist — besked sendt til ansøger')
+      setRejectConfirmMember(null)
+    },
     onError: (e: Error) => toast.error(e.message),
   })
 
@@ -514,6 +529,37 @@ export function AdminContent() {
                 onClick={() => deleteMemberMutation.mutate(deleteConfirmMember.id)}
               >
                 Ja, slet permanent
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rejectConfirmMember && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-charcoal border border-amber-700/40 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                <XCircle size={20} className="text-amber-400" />
+              </div>
+              <div>
+                <h3 className="font-serif text-heading-sm text-parchment">Afvis ansøgning</h3>
+                <p className="text-sm text-muted mt-0.5">Ansøgeren vil modtage en afvisnings-email.</p>
+              </div>
+            </div>
+            <p className="text-sm text-parchment/80">
+              Er du sikker på, at du vil afvise <span className="font-semibold text-parchment">{rejectConfirmMember.full_name}</span>s ansøgning?
+              Deres konto vil blive slettet.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setRejectConfirmMember(null)} disabled={rejectMutation.isPending}>Annuller</Button>
+              <Button
+                variant="ghost"
+                className="bg-amber-700 hover:bg-amber-600 text-white"
+                loading={rejectMutation.isPending}
+                onClick={() => rejectMutation.mutate(rejectConfirmMember.id)}
+              >
+                Ja, afvis ansøgning
               </Button>
             </div>
           </div>
@@ -663,15 +709,28 @@ export function AdminContent() {
                         {m.joined_at ? new Date(m.joined_at).toLocaleDateString('da-DK') : '—'}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button
-                          size="sm"
-                          variant="gold"
-                          onClick={() => approveMutation.mutate(m.id)}
-                          loading={approveMutation.isPending}
-                        >
-                          <CheckCircle size={14} />
-                          Godkend
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20 border border-red-700/30"
+                            onClick={() => setRejectConfirmMember(m)}
+                            disabled={rejectMutation.isPending || approveMutation.isPending}
+                          >
+                            <XCircle size={14} />
+                            Afvis
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="gold"
+                            onClick={() => approveMutation.mutate(m.id)}
+                            loading={approveMutation.isPending}
+                            disabled={rejectMutation.isPending}
+                          >
+                            <CheckCircle size={14} />
+                            Godkend
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
