@@ -16,7 +16,11 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   profile: null,
-  isLoading: true,
+  // Start as false — AppShell sets the actual profile via useLayoutEffect before
+  // the first browser paint. Keeping this false means all React Query hooks are
+  // enabled from the very first render and use HydrationBoundary cache data
+  // immediately, with no "isLoading dance" that can race against token refresh.
+  isLoading: false,
 
   setProfile: (profile) => set({ profile }),
   setLoading: (isLoading) => set({ isLoading }),

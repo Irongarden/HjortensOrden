@@ -13,30 +13,21 @@ const supabase = createClient()
 
 function AuthProvider({ children }: { children: React.ReactNode }) {
   const setProfile = useAuthStore((s) => s.setProfile)
-  const setLoading = useAuthStore((s) => s.setLoading)
   const queryClient = useQueryClient()
 
   useEffect(() => {
     let mounted = true
 
-    // Safety-net: stop spinner after 10s no matter what
-    const timeout = setTimeout(() => {
-      if (mounted) setLoading(false)
-    }, 10_000)
-
-    // ── Step 1: Read session immediately from cookie storage (no network call).
-    // getSession() is synchronous-ish and doesn't require a round-trip — this
-    // is what fires reliably on both desktop and mobile.
-    // NOTE: If AppShell (DashboardLayout) already bootstrapped the store via
-    // server-side profile data, useLayoutEffect will have set isLoading=false
-    // BEFORE this useEffect runs. In that case we skip the fetch entirely.
+    // ── Step 1: Read session from cookie storage.
+    // Runs only when AppShell couldn’t set a profile (server fetch failed).
+    // If profile is already set via useLayoutEffect, we skip immediately.
     async function loadFromSession() {
       try {
-        // Skip only when AppShell already bootstrapped WITH a real profile.
-        // If profile is null (server fetch failed due to token timing),
-        // we still run client-side so the user doesn't see a blank page.
-        const state = useAuthStore.getState()
-        if (!state.isLoading && state.profile !== null) return
+        // Skip if AppShell's useLayoutEffect already set a real profile from the
+        // server. isLoading starts as false in the store, so the only meaningful
+        // check is whether profile has been confirmed. useLayoutEffect always runs
+        // before this useEffect, so if initialProfile was non-null it's already set.
+        if (useAuthStore.getState().profile !== null) return
 
         const { data: { session } } = await supabase.auth.getSession()
         if (!mounted) return
@@ -52,9 +43,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {
         if (mounted) setProfile(null)
-      } finally {
-        clearTimeout(timeout)
-        if (mounted) setLoading(false)
       }
     }
 
@@ -91,10 +79,9 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false
-      clearTimeout(timeout)
       subscription.unsubscribe()
     }
-  }, [setProfile, setLoading, queryClient])
+  }, [setProfile, queryClient])
 
   return <>{children}</>
 }

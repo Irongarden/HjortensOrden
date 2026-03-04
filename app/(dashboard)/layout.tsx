@@ -20,7 +20,13 @@ export default async function DashboardLayout({
   // This bypasses RLS and is not affected by the user's JWT expiry.
   // We already verified identity above via getUser(), so it's safe.
   const admin = createAdminClient()
-  const queryClient = new QueryClient()
+  // staleTime must match (or exceed) the client QueryClient default so that
+  // HydrationBoundary data is never considered immediately stale. Without this,
+  // React Query sees staleTime=0, immediately background-refetches after hydration,
+  // and the browser client can race against a token-refresh — returning empty data.
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { staleTime: 5 * 60_000 } },
+  })
 
   const [{ data: profile }] = await Promise.all([
     // Current user profile
