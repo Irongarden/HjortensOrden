@@ -9,6 +9,7 @@ import {
   CheckCircle, XCircle, Link2, Plus, Copy, Trash2, ToggleLeft, ToggleRight, Pencil, X, Upload, AlertTriangle,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/ui/avatar'
@@ -26,8 +27,10 @@ function supabaseClient() {
 }
 
 function useAuditLog() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['audit_log'],
+    enabled: authReady,
     queryFn: async () => {
       const { data, error } = await supabaseClient()
         .from('audit_log')
@@ -42,8 +45,10 @@ function useAuditLog() {
 }
 
 function useAllMembers() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['members', 'all'],
+    enabled: authReady,
     queryFn: async () => {
       const { data, error } = await supabaseClient()
         .from('profiles')
@@ -57,8 +62,10 @@ function useAllMembers() {
 }
 
 function useInviteLinks() {
+  const authReady = useAuthReady()
   return useQuery<PublicInviteLink[]>({
     queryKey: ['invite_links'],
+    enabled: authReady,
     queryFn: async () => {
       const res = await fetch('/api/invite-links')
       if (!res.ok) throw new Error('Fejl ved hentning af links')
