@@ -32,8 +32,11 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     // BEFORE this useEffect runs. In that case we skip the fetch entirely.
     async function loadFromSession() {
       try {
-        // Already bootstrapped by AppShell's useLayoutEffect — nothing to do.
-        if (!useAuthStore.getState().isLoading) return
+        // Skip only when AppShell already bootstrapped WITH a real profile.
+        // If profile is null (server fetch failed due to token timing),
+        // we still run client-side so the user doesn't see a blank page.
+        const state = useAuthStore.getState()
+        if (!state.isLoading && state.profile !== null) return
 
         const { data: { session } } = await supabase.auth.getSession()
         if (!mounted) return
