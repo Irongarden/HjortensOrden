@@ -26,8 +26,14 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     // ── Step 1: Read session immediately from cookie storage (no network call).
     // getSession() is synchronous-ish and doesn't require a round-trip — this
     // is what fires reliably on both desktop and mobile.
+    // NOTE: If AppShell (DashboardLayout) already bootstrapped the store via
+    // server-side profile data, useLayoutEffect will have set isLoading=false
+    // BEFORE this useEffect runs. In that case we skip the fetch entirely.
     async function loadFromSession() {
       try {
+        // Already bootstrapped by AppShell's useLayoutEffect — nothing to do.
+        if (!useAuthStore.getState().isLoading) return
+
         const { data: { session } } = await supabase.auth.getSession()
         if (!mounted) return
         if (session?.user) {
