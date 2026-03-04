@@ -12,29 +12,23 @@ import { Profile } from '@/lib/types'
 const supabase = createClient()
 
 function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Use individual selectors so AuthProvider only re-renders if these specific functions change
   const setProfile = useAuthStore((s) => s.setProfile)
   const setLoading = useAuthStore((s) => s.setLoading)
 
   useEffect(() => {
-    // Initial session check
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-        setProfile(data as Profile)
-      }
-      setLoading(false)
-    }).catch(() => {
-      setLoading(false)
-    })
+    let mounted = true
 
-    // Listen for auth changes
+    // Safety-net: if onAuthStateChange never fires (rare edge case), stop spinning
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false)
+    }, 10_000)
+
+    // Single auth path — INITIAL_SESSION fires immediately from localStorage,
+    // so no duplicate network calls racing each other.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        clearTimeout(timeout)
+        if (!mounted) return
         try {
           if (session?.user) {
             const { data } = await supabase
@@ -42,20 +36,23 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
               .select('*')
               .eq('id', session.user.id)
               .single()
-            setProfile(data as Profile)
+            if (mounted) setProfile(data as Profile)
           } else {
-            setProfile(null)
+            if (mounted) setProfile(null)
           }
         } catch {
-          // Ignore profile fetch errors on auth state change
+          if (mounted) setProfile(null)
         } finally {
-          setLoading(false)
+          if (mounted) setLoading(false)
         }
       }
     )
 
-    return () => subscription.unsubscribe()
-  // setProfile and setLoading are stable Zustand action references — safe as deps
+    return () => {
+      mounted = false
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+    }
   }, [setProfile, setLoading])
 
   return <>{children}</>
@@ -68,7 +65,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 60_000,
-            retry: 1,
+            retry: 3,
+            retryDelay: (attempt) => Math.min(400 * 2 ** attempt, 8000),
             refetchOnWindowFocus: false,
           },
         },

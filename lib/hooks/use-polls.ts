@@ -12,7 +12,8 @@ export function usePolls(status?: PollStatus) {
     queryKey: ['polls', status],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user ?? null
       let query = supabase
         .from('polls')
         .select(`
@@ -53,7 +54,8 @@ export function useActivePoll() {
   return useQuery({
     queryKey: ['polls', 'active', 'first'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user ?? null
       const { data, error } = await supabase
         .from('polls')
         .select('*, votes:poll_votes(id, option_index, user_id)')
