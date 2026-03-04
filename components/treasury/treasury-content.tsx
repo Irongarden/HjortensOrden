@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
   TrendingUp, TrendingDown, DollarSign, Users,
@@ -16,7 +17,7 @@ import {
   useExportTransactionsCSV, useRegisterTransaction, useRegisterPayment,
   useDeleteTransaction, useUpdateTransaction,
   useRecurringTransactions, useCreateRecurring, useDeleteRecurring, useRunRecurring,
-  useTreasurySetting, useUpdateTreasurySetting, useToggleAutoPay,
+  useTreasurySetting, useUpdateTreasurySetting, useToggleAutoPay, usePaymentReminderLog,
 } from '@/lib/hooks/use-treasury'
 import { useMembers } from '@/lib/hooks/use-members'
 import { StatCard } from '@/components/ui/card'
@@ -29,7 +30,8 @@ import { Input, Select } from '@/components/ui/input'
 import { formatDKK, formatDate, getMonthKey } from '@/lib/utils'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { format, addMonths } from 'date-fns'
+import { format, addMonths, formatDistanceToNow } from 'date-fns'
+import { da } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import type { TreasuryTransaction, RecurringTransaction } from '@/lib/types'
 
@@ -48,6 +50,7 @@ export function TreasuryContent() {
   const [registeringId, setRegisteringId] = useState<string | null>(null)
   const [sendingReminders, setSendingReminders] = useState(false)
   const { can } = useAuthStore()
+  const qc = useQueryClient()
 
   const { data: balance, isLoading: balLoading } = useTreasuryBalance()
   const { data: transactions = [], isLoading: txLoading } = useTreasuryTransactions(200)
@@ -63,6 +66,7 @@ export function TreasuryContent() {
   const runRecurring = useRunRecurring()
   const deleteRecurring = useDeleteRecurring()
   const toggleAutoPay = useToggleAutoPay()
+  const { data: reminderLog = {} } = usePaymentReminderLog(payMonth)
 
   const activeMembers = members.filter((m) => m.status === 'active')
   const paidThisMonth = payments.filter((p) => p.status === 'paid').length
@@ -97,6 +101,7 @@ export function TreasuryContent() {
       } else {
         toast.success(`${data.sent} af ${data.total} påmindelser sendt`)
       }
+      qc.invalidateQueries({ queryKey: ['treasury', 'reminder-log', payMonth] })
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Fejl ved afsendelse')
     } finally {
@@ -379,7 +384,14 @@ export function TreasuryContent() {
                           </span>
                         )}
                       </div>
-                      {payment?.paid_at && <p className="text-xs text-muted">Betalt {formatDate(payment.paid_at)}</p>}
+                      {payment?.paid_at
+                        ? <p className="text-xs text-muted">Betalt {formatDate(payment.paid_at)}</p>
+                        : reminderLog[member.id]
+                          ? <p className="text-xs text-muted flex items-center gap-1">
+                              <Mail size={10} /> Påmindet {formatDistanceToNow(new Date(reminderLog[member.id]), { addSuffix: true, locale: da })}
+                            </p>
+                          : null
+                      }
                     </div>
                   </div>
                   <div className="flex items-center gap-3">

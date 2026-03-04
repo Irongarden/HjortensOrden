@@ -418,3 +418,22 @@ export function useToggleAutoPay() {
     onError: (e: Error) => toast.error(e.message),
   })
 }
+
+// Returns a map of { [userId]: latestSentAt } for the given month
+export function usePaymentReminderLog(month?: string) {
+  const authReady = useAuthReady()
+  return useQuery({
+    queryKey: ['treasury', 'reminder-log', month],
+    staleTime: 60_000,
+    enabled: authReady && !!month,
+    queryFn: async () => {
+      const res = await fetch(`/api/treasury/send-reminders?month=${month}`)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Fejl' }))
+        throw new Error(err.error ?? 'Kunne ikke hente påmindelseslog')
+      }
+      const json = await res.json() as { log: Record<string, string> }
+      return json.log // { [userId]: latestSentAt }
+    },
+  })
+}

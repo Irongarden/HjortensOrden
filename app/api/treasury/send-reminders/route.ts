@@ -7,6 +7,42 @@ export const dynamic = 'force-dynamic'
 
 const ALLOWED_ROLES = ['admin', 'chairman', 'vice_chairman', 'treasurer']
 
+// ── GET /api/treasury/send-reminders?month=YYYY-MM ──────────────────────────
+// Returns the reminder log for a given month so the UI can show
+// "Sidst påmindet" next to each member.
+export async function GET(req: NextRequest) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const month = new URL(req.url).searchParams.get('month')
+  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+    return NextResponse.json({ error: 'Mangler ?month=YYYY-MM' }, { status: 400 })
+  }
+
+  const admin = createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
+  // Return the most recent sent_at per user_id for this month
+  const { data, error } = await admin
+    .from('payment_reminder_log')
+    .select('user_id, sent_at')
+    .eq('period_month', month)
+    .order('sent_at', { ascending: false })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Deduplicate — keep only the latest entry per user
+  const latest: Record<string, string> = {}
+  for (const row of data ?? []) {
+    if (!latest[row.user_id]) latest[row.user_id] = row.sent_at
+  }
+
+  return NextResponse.json({ log: latest })
+}
+
 const MONTH_NAMES = [
   'januar', 'februar', 'marts', 'april', 'maj', 'juni',
   'juli', 'august', 'september', 'oktober', 'november', 'december',
@@ -183,6 +219,21 @@ export async function POST(req: NextRequest) {
       const msg = e instanceof Error ? e.message : String(e)
       errors.push(`${member.full_name} (${member.email}): ${msg}`)
       console.error('[send-reminders] SMTP error:', msg)
+    }
+  }
+
+  if (sent > 0) {
+    // Record which members were successfully reminded this month
+    const sentMembers = (unpaid as { id: string; full_name: string; email: string }[])
+      .filter((m) => !errors.some((e) => e.startsWith(m.full_name)))
+    if (sentMembers.length > 0) {
+      await admin.from('payment_reminder_log').insert(
+        sentMembers.map((m) => ({
+          period_month: month,
+          user_id:      m.id,
+          sent_by:      user.id,
+        }))
+      )
     }
   }
 
