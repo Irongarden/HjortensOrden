@@ -59,7 +59,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   // Auto-create timeline entry when event is marked as completed
-  if (body.status === 'completed' && event?.status !== 'completed') {    // Only insert if no timeline entry already exists for this event    const { data: existing } = await adminSupabase
+  if (body.status === 'completed' && event?.status !== 'completed') {
+    // Only insert if no timeline entry already exists for this event
+    const { data: existing } = await adminSupabase
       .from('timeline_entries')
       .select('id')
       .eq('event_id', params.id)
