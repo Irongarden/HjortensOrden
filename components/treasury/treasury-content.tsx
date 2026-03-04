@@ -90,7 +90,13 @@ export function TreasuryContent() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Fejl ved afsendelse')
-      toast.success(`${data.sent} af ${data.total} påmindelser sendt`)
+      if (data.sent === 0 && data.errors?.length > 0) {
+        toast.error(`Afsendelse fejlede: ${data.errors[0]}`)
+      } else if (data.sent < data.total) {
+        toast(`${data.sent} af ${data.total} sendt — ${data.errors?.length ?? 0} fejlede`, { icon: '⚠️' })
+      } else {
+        toast.success(`${data.sent} af ${data.total} påmindelser sendt`)
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Fejl ved afsendelse')
     } finally {

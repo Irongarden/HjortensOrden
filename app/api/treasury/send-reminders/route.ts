@@ -173,9 +173,10 @@ export async function POST(req: NextRequest) {
     if (res.ok) {
       sent++
     } else {
-      const errText = await res.text().catch(() => 'Ukendt fejl')
-      errors.push(`${member.full_name} (${member.email}): ${errText}`)
-      console.error('[send-reminders] Resend error:', errText)
+      const errBody = await res.json().catch(() => ({ message: 'Ukendt fejl' }))
+      const errMsg = errBody?.message ?? errBody?.name ?? JSON.stringify(errBody)
+      errors.push(`${member.full_name} (${member.email}): ${errMsg}`)
+      console.error('[send-reminders] Resend error:', res.status, errMsg)
     }
   }
 
