@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { Menu, Search, Bell, LogOut, User, ChevronDown } from 'lucide-react'
 import { cn, formatRelative } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth-store'
@@ -15,7 +14,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 
 export function Topbar() {
-  const router = useRouter()
   const { profile } = useAuthStore()
   const { toggleSidebar, setCommandOpen, sidebarOpen } = useUIStore()
   const { data: notifications = [] } = useNotifications()
@@ -27,9 +25,12 @@ export function Topbar() {
   const unreadCount = notifications.filter((n) => !n.read).length
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    setProfileOpen(false)
+    try {
+      await supabase.auth.signOut()
+    } catch { /* session may already be gone */ }
     toast.success('Du er nu logget ud')
-    router.push('/login')
+    window.location.href = '/login'
   }
 
   return (

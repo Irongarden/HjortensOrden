@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -35,7 +35,7 @@ export function EventModal({ open, onClose, event, defaultStartDate }: EventModa
   const update = useUpdateEvent()
   const isEdit = !!event
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<EventForm>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch, setValue, getValues } = useForm<EventForm>({
     resolver: zodResolver(eventSchema),
     defaultValues: event ? {
       title:       event.title,
@@ -54,9 +54,14 @@ export function EventModal({ open, onClose, event, defaultStartDate }: EventModa
     },
   })
 
+  // Skip auto-sync on form initialisation (reset on open), only sync on user changes
+  const skipNextSync = useRef(false)
+  const startsAt = watch('starts_at')
+
   // Re-seed form when modal opens or a new calendar slot is clicked
   useEffect(() => {
     if (!open) return
+    skipNextSync.current = true
     if (event) {
       reset({
         title:        event.title,
@@ -78,6 +83,26 @@ export function EventModal({ open, onClose, event, defaultStartDate }: EventModa
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultStartDate])
+
+  // Auto-sync ends_at to same month when starts_at month changes
+  useEffect(() => {
+    if (skipNextSync.current) { skipNextSync.current = false; return }
+    if (!startsAt) return
+    const startDate = new Date(startsAt)
+    if (isNaN(startDate.getTime())) return
+    const currentEndsAt = getValues('ends_at')
+    if (!currentEndsAt) { setValue('ends_at', startsAt); return }
+    const endDate = new Date(currentEndsAt)
+    if (isNaN(endDate.getTime())) return
+    if (
+      endDate < startDate ||
+      startDate.getMonth() !== endDate.getMonth() ||
+      startDate.getFullYear() !== endDate.getFullYear()
+    ) {
+      setValue('ends_at', startsAt)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startsAt])
 
   const onSubmit = async (data: EventForm) => {
     if (isEdit) {

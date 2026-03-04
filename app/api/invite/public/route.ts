@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 // POST /api/invite/public
 // Body: { token, full_name, email, password }
 export async function POST(req: NextRequest) {
-  const { token, full_name, email, password } = await req.json()
+  const { token, full_name, email, password, city } = await req.json()
 
   if (!token || !full_name || !email || !password) {
     return NextResponse.json({ error: 'Alle felter er påkrævet' }, { status: 400 })
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
       full_name,
       role: 'member',
       status: 'pending',
+      ...(city ? { city } : {}),
     })
     .eq('id', authData.user.id)
 

@@ -111,7 +111,25 @@ export function TreasuryContent() {
     { key: 'recurring',    label: 'Faste' },
   ]
 
-  if (balLoading) return <PageLoader />
+  if (balLoading) return (
+    <div className="space-y-6">
+      <div>
+        <Skeleton className="h-3 w-24 mb-1" />
+        <Skeleton className="h-8 w-40" />
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="bg-charcoal border border-border rounded-xl p-4 space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-28" />
+          </div>
+        ))}
+      </div>
+      <div className="bg-charcoal border border-border rounded-xl p-4 space-y-3">
+        {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
+      </div>
+    </div>
+  )
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">

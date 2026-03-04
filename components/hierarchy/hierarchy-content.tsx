@@ -58,9 +58,10 @@ export function HierarchyContent() {
 
   const activeMembers = members.filter((m) => m.status === 'active')
 
-  // Group by role in hierarchy order (most senior first)
+  // Group by role in hierarchy order (most senior first), excluding admin
   const byRole: Partial<Record<MemberRole, Profile[]>> = {}
   ;[...ROLE_HIERARCHY].reverse().forEach((role) => {
+    if (role === 'admin') return // Administrators hidden from hierarchy view
     const roleMembers = activeMembers.filter((m) => m.role === role)
     if (roleMembers.length > 0) byRole[role] = roleMembers
   })

@@ -16,7 +16,7 @@ import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import { AvatarGroup, Avatar } from '@/components/ui/avatar'
 import { RSVPBadge, EventStatusBadge } from '@/components/ui/badge'
-import { PageLoader } from '@/components/ui/skeleton'
+import { PageLoader, Skeleton } from '@/components/ui/skeleton'
 import { ConfirmModal } from '@/components/ui/modal'
 import { EventModal } from './event-modal'
 import { formatDateTime, formatDKK, formatDate } from '@/lib/utils'
@@ -115,7 +115,20 @@ export function EventDetailPage({ id }: { id: string }) {
   const { data: allAlbums = [], isLoading: allAlbumsLoading } = useAllAlbumsForPicker(showAlbumPicker)
   const linkAlbumToEvent = useLinkAlbumToEvent()
 
-  if (isLoading) return <PageLoader />
+  if (isLoading) return (
+    <div className="space-y-6 max-w-3xl">
+      <Skeleton className="h-8 w-64" />
+      <div className="bg-charcoal border border-border rounded-2xl p-6 space-y-4">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/4" />
+        <div className="grid grid-cols-2 gap-4">
+          <Skeleton className="h-12 rounded-xl" />
+          <Skeleton className="h-12 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  )
   if (error || !event) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">

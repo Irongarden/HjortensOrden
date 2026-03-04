@@ -263,10 +263,20 @@ function EditMemberModal({ member, onClose }: { member: Profile; onClose: () => 
                 type="checkbox"
                 className="w-4 h-4 accent-gold rounded"
                 checked={form.is_founder}
-                onChange={(e) => setForm((prev) => ({ ...prev, is_founder: e.target.checked }))}
+                onChange={(e) => {
+                  const checked = e.target.checked
+                  setForm((prev) => ({
+                    ...prev,
+                    is_founder: checked,
+                    ...(checked ? { joined_at: '2017-02-04' } : {}),
+                  }))
+                }}
               />
               <span className="text-sm text-parchment/80">Stiftende medlem (founder)</span>
             </label>
+            {form.is_founder && (
+              <p className="text-[10px] text-gold/60 mt-1 ml-7">Indmeldelsesdato sat til 04/02/2017</p>
+            )}
           </div>
 
           <div className="sm:col-span-2">

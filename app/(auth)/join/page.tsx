@@ -3,7 +3,7 @@
 import { useState, Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { User, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle, Clock } from 'lucide-react'
+import { User, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle, Clock, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -14,6 +14,7 @@ function JoinForm() {
 
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [city, setCity] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -73,7 +74,7 @@ function JoinForm() {
       const res = await fetch('/api/invite/public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, full_name: fullName, email, password }),
+        body: JSON.stringify({ token, full_name: fullName, email, password, city: city || null }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -182,6 +183,14 @@ function JoinForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                />
+                <Input
+                  label="By"
+                  type="text"
+                  placeholder="København, Aarhus…"
+                  leftIcon={<MapPin size={16} />}
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
                 />
                 <Input
                   label="Adgangskode"
