@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import { useMembers } from '@/lib/hooks/use-members'
+import { useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 import { Avatar } from '@/components/ui/avatar'
 import type { Profile } from '@/lib/types'
 
@@ -32,6 +34,8 @@ export function MemberMap({
   extraMarkers = [],
 }: MemberMapProps) {
   const { data: members = [] } = useMembers()
+  const qc = useQueryClient()
+  const supabase = createClient()
 
   const mapRef      = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,6 +52,39 @@ export function MemberMap({
   const withLocation = members.filter(
     (m): m is Profile & { lat: number; lng: number } => m.lat != null && m.lng != null,
   )
+
+  // ── Auto-geocode members with city but no lat/lng ──────────────────────────
+  useEffect(() => {
+    const missingCoords = members.filter((m) => m.city && m.lat == null)
+    if (missingCoords.length === 0) return
+
+    let cancelled = false
+    ;(async () => {
+      for (const m of missingCoords) {
+        if (cancelled) break
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(m.city!)}&format=json&limit=1&countrycodes=dk,se,no,de`,
+            { headers: { 'Accept-Language': 'da' } },
+          )
+          const results = await res.json()
+          if (!results.length) continue
+          const lat = parseFloat(results[0].lat)
+          const lng = parseFloat(results[0].lon)
+          // Save coords back to DB so next load is instant
+          await supabase.from('profiles').update({ lat, lng }).eq('id', m.id)
+          if (cancelled) break
+          // Update React Query cache so markers refresh immediately
+          qc.setQueryData<Profile[]>(['members'], (old) =>
+            old ? old.map((p) => p.id === m.id ? { ...p, lat, lng } : p) : old,
+          )
+        } catch { /* ignore individual failures */ }
+      }
+    })()
+
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members.map((m) => m.id + (m.lat ?? 'x')).join(',')])
 
   // ── Shared marker helper ───────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
