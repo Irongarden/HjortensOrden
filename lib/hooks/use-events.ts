@@ -4,13 +4,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Event, EventParticipant, RSVPStatus } from '@/lib/types'
 import toast from 'react-hot-toast'
+import { useAuthReady } from './use-auth-ready'
 
 const supabase = createClient()
 
 export function useEvents(month?: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['events', month],
     staleTime: 5 * 60_000,
+    enabled: authReady,
     queryFn: async () => {
       let query = supabase
         .from('events')
@@ -39,9 +42,11 @@ export function useEvents(month?: string) {
 }
 
 export function useEvent(id: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['events', id],
     staleTime: 60_000,
+    enabled: authReady && !!id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
@@ -60,14 +65,15 @@ export function useEvent(id: string) {
       if (error) throw error
       return data as unknown as Event
     },
-    enabled: !!id,
   })
 }
 
 export function useUpcomingEvents(limit = 5) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['events', 'upcoming', limit],
     staleTime: 2 * 60_000,
+    enabled: authReady,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')

@@ -6,13 +6,16 @@ import { TreasuryTransaction, PaymentRecord, TreasuryForecast, RecurringTransact
 import { formatDKK, exportToCSV, getMonthKey } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { format, addMonths } from 'date-fns'
+import { useAuthReady } from './use-auth-ready'
 
 const supabase = createClient()
 
 export function useTreasuryBalance() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['treasury', 'balance'],
     staleTime: 60_000,
+    enabled: authReady,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('treasury_balance')
@@ -25,9 +28,11 @@ export function useTreasuryBalance() {
 }
 
 export function useTreasuryTransactions(limit = 50) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['treasury', 'transactions', limit],
     staleTime: 60_000,
+    enabled: authReady,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('treasury_transactions')
@@ -41,9 +46,11 @@ export function useTreasuryTransactions(limit = 50) {
 }
 
 export function usePaymentRecords(month?: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['treasury', 'payments', month],
     staleTime: 60_000,
+    enabled: authReady,
     queryFn: async () => {
       let query = supabase
         .from('payment_records')
@@ -58,9 +65,11 @@ export function usePaymentRecords(month?: string) {
 }
 
 export function useTreasuryForecast(months = 6) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['treasury', 'forecast', months],
     staleTime: 5 * 60_000,
+    enabled: authReady,
     queryFn: async () => {
       // Get active member count, current balance, and configured monthly fee
       const [balanceRes, membersRes, settingRes] = await Promise.all([
@@ -183,9 +192,11 @@ export function useRegisterPayment() {
 }
 
 export function useTreasurySetting() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['treasury', 'settings'],
     staleTime: 5 * 60_000,
+    enabled: authReady,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
@@ -290,9 +301,11 @@ export function useUpdateTransaction() {
 // ── Recurring transactions ────────────────────────────────
 
 export function useRecurringTransactions() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['treasury', 'recurring'],
     staleTime: 5 * 60_000,
+    enabled: authReady,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('recurring_transactions')

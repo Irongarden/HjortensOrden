@@ -4,14 +4,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Profile, MemberRole, MemberStatus } from '@/lib/types'
 import toast from 'react-hot-toast'
+import { useAuthReady } from './use-auth-ready'
 
 const supabase = createClient()
 
 // ── Current user profile ───────────────────────
 export function useProfile() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['profile'],
     staleTime: 5 * 60_000,
+    enabled: authReady,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return null
@@ -28,9 +31,11 @@ export function useProfile() {
 
 // ── All members ────────────────────────────────
 export function useMembers() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['members'],
     staleTime: 5 * 60_000,
+    enabled: authReady,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
@@ -106,9 +111,11 @@ export function useChangeMemberStatus() {
 
 // ── Notifications ──────────────────────────────
 export function useNotifications() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['notifications'],
     staleTime: 20_000,
+    enabled: authReady,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return []

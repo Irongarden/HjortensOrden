@@ -1,6 +1,6 @@
 'use client'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
 import { useState, useEffect } from 'react'
@@ -14,6 +14,7 @@ const supabase = createClient()
 function AuthProvider({ children }: { children: React.ReactNode }) {
   const setProfile = useAuthStore((s) => s.setProfile)
   const setLoading = useAuthStore((s) => s.setLoading)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     let mounted = true
@@ -62,6 +63,12 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (event === 'INITIAL_SESSION') return
         if (!mounted) return
+        // On sign-out, wipe React Query cache so no stale data leaks to next user
+        if (event === 'SIGNED_OUT') {
+          queryClient.clear()
+          if (mounted) setProfile(null)
+          return
+        }
         try {
           if (session?.user) {
             const { data } = await supabase
@@ -84,7 +91,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timeout)
       subscription.unsubscribe()
     }
-  }, [setProfile, setLoading])
+  }, [setProfile, setLoading, queryClient])
 
   return <>{children}</>
 }

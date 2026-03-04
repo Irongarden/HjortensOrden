@@ -4,13 +4,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Poll, PollVote, PollStatus } from '@/lib/types'
 import toast from 'react-hot-toast'
+import { useAuthReady } from './use-auth-ready'
 
 const supabase = createClient()
 
 export function usePolls(status?: PollStatus) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['polls', status],
     staleTime: 5 * 60_000,
+    enabled: authReady,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user ?? null
@@ -51,9 +54,11 @@ export function usePolls(status?: PollStatus) {
 }
 
 export function useActivePoll() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['polls', 'active', 'first'],
     staleTime: 2 * 60_000,
+    enabled: authReady,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user ?? null
