@@ -18,16 +18,43 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
 
-    // Safety-net: if onAuthStateChange never fires (rare edge case), stop spinning
+    // Safety-net: stop spinner after 10s no matter what
     const timeout = setTimeout(() => {
       if (mounted) setLoading(false)
     }, 10_000)
 
-    // Single auth path — INITIAL_SESSION fires immediately from localStorage,
-    // so no duplicate network calls racing each other.
+    // ── Step 1: Read session immediately from cookie storage (no network call).
+    // getSession() is synchronous-ish and doesn't require a round-trip — this
+    // is what fires reliably on both desktop and mobile.
+    async function loadFromSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!mounted) return
+        if (session?.user) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+          if (mounted) setProfile(data as Profile)
+        } else {
+          if (mounted) setProfile(null)
+        }
+      } catch {
+        if (mounted) setProfile(null)
+      } finally {
+        clearTimeout(timeout)
+        if (mounted) setLoading(false)
+      }
+    }
+
+    loadFromSession()
+
+    // ── Step 2: Listen for subsequent auth state changes (sign-in, sign-out,
+    // token refresh). Skip INITIAL_SESSION — already handled above.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        clearTimeout(timeout)
+        if (event === 'INITIAL_SESSION') return
         if (!mounted) return
         try {
           if (session?.user) {
@@ -42,8 +69,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch {
           if (mounted) setProfile(null)
-        } finally {
-          if (mounted) setLoading(false)
         }
       }
     )
