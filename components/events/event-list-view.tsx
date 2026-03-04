@@ -9,10 +9,14 @@ import { format } from 'date-fns'
 import { da } from 'date-fns/locale'
 
 export function EventListView({
-  events, onSelect,
-}: { events: Event[]; onSelect: (event: Event) => void }) {
+  events, onSelect, reverse = false,
+}: { events: Event[]; onSelect: (event: Event) => void; reverse?: boolean }) {
+  const sorted = [...events].sort((a, b) => {
+    const diff = new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+    return reverse ? -diff : diff
+  })
   const grouped = groupBy(
-    events.sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()),
+    sorted,
     // @ts-ignore
     (e: Event) => format(new Date(e.starts_at), 'MMMM yyyy', { locale: da })
   )

@@ -6,7 +6,7 @@ import { format, parse, startOfWeek, getDay } from 'date-fns'
 import { da } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { motion } from 'framer-motion'
-import { Plus, List, CalendarDays } from 'lucide-react'
+import { Plus, List, CalendarDays, History } from 'lucide-react'
 import { useEvents } from '@/lib/hooks/use-events'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Button } from '@/components/ui/button'
@@ -30,8 +30,11 @@ const STATUS_STYLES: Record<EventStatus, React.CSSProperties> = {
   completed: { backgroundColor: 'rgba(26,122,73,0.15)',   borderLeft: '3px solid #4ade80', color: '#86efac' },
 }
 
+type Tab = 'upcoming' | 'history'
+
 export function EventsContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('calendar')
+  const [tab, setTab] = useState<Tab>('upcoming')
   const [createOpen, setCreateOpen] = useState(false)
   const [createDefaultDate, setCreateDefaultDate] = useState<string | undefined>()
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
@@ -41,7 +44,24 @@ export function EventsContent() {
   const monthKey = getMonthKey(currentDate)
   const { data: events = [], isLoading } = useEvents()
 
-  const calendarEvents: RBCEvent[] = events.map((e) => ({
+  const now = new Date()
+  const upcomingEvents = events.filter((e) => new Date(e.ends_at) >= now)
+  const pastEvents     = events.filter((e) => new Date(e.ends_at) <  now)
+  const visibleEvents  = tab === 'upcoming' ? upcomingEvents : pastEvents
+
+  function handleTabChange(newTab: Tab) {
+    setTab(newTab)
+    if (newTab === 'history' && pastEvents.length > 0) {
+      const mostRecent = pastEvents.reduce((a, b) =>
+        new Date(a.starts_at) > new Date(b.starts_at) ? a : b
+      )
+      setCurrentDate(new Date(mostRecent.starts_at))
+    } else if (newTab === 'upcoming') {
+      setCurrentDate(new Date())
+    }
+  }
+
+  const calendarEvents: RBCEvent[] = visibleEvents.map((e) => ({
     title: e.title,
     start: new Date(e.starts_at),
     end: new Date(e.ends_at),
@@ -92,6 +112,32 @@ export function EventsContent() {
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Tabs: Kommende / Historik */}
+      <div className="flex gap-0 border-b border-border">
+        {([
+          { key: 'upcoming', label: 'Kommende',  icon: <CalendarDays size={13} /> },
+          { key: 'history',  label: 'Historik',  icon: <History size={13} /> },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => handleTabChange(t.key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              tab === t.key
+                ? 'border-gold text-gold'
+                : 'border-transparent text-muted hover:text-parchment'
+            }`}
+          >
+            {t.icon}
+            {t.label}
+            <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${
+              tab === t.key ? 'bg-gold/20 text-gold' : 'bg-surface text-muted'
+            }`}>
+              {t.key === 'upcoming' ? upcomingEvents.length : pastEvents.length}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Legend */}
@@ -163,7 +209,7 @@ export function EventsContent() {
           />
         </div>
       ) : (
-        <EventListView events={events} onSelect={setSelectedEvent} />
+        <EventListView events={visibleEvents} onSelect={setSelectedEvent} reverse={tab === 'history'} />
       )}
 
       {/* Create Modal */}
