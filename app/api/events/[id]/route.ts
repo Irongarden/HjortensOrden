@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // Check ownership or permission
   const { data: event } = await adminSupabase
     .from('events')
-    .select('created_by')
+    .select('created_by, status, title, description, starts_at')
     .eq('id', params.id)
     .single()
 
@@ -45,6 +45,29 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const body = await req.json()
   const { error } = await adminSupabase.from('events').update(body).eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // Auto-create timeline entry when event is marked as completed
+  if (body.status === 'completed' && event?.status !== 'completed') {
+    // Only insert if no timeline entry already exists for this event
+    const { data: existing } = await adminSupabase
+      .from('timeline_entries')
+      .select('id')
+      .eq('event_id', params.id)
+      .maybeSingle()
+
+    if (!existing) {
+      const entryDate = body.starts_at ?? event?.starts_at ?? new Date().toISOString()
+      await adminSupabase.from('timeline_entries').insert({
+        title:       body.title ?? event?.title,
+        description: body.description ?? event?.description ?? null,
+        entry_date:  entryDate.slice(0, 10),
+        type:        'major_event',
+        event_id:    params.id,
+        created_by:  caller.userId,
+      } as never)
+    }
+  }
+
   return NextResponse.json({ success: true })
 }
 
