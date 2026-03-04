@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
 
   const unpaid = members.filter((m: { id: string }) => !paidIds.has(m.id))
   const label = monthLabel(month)
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'Hjortens Orden <onboarding@resend.dev>'
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Hjortens Orden <onboarding@resend.dev>'
 
   let sent = 0
   const errors: string[] = []
