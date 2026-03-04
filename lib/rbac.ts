@@ -46,8 +46,8 @@ export const PERMISSIONS = {
   view_all_members:  (_role: MemberRole) => true,
 
   // Events
-  create_events:     (role: MemberRole) => hasMinRole(role, 'vice_chairman'),
-  edit_events:       (role: MemberRole) => hasMinRole(role, 'vice_chairman'),
+  create_events:     (_role: MemberRole) => true,
+  edit_events:       (_role: MemberRole) => true,
   delete_events:     (role: MemberRole) => hasMinRole(role, 'chairman'),
   view_events:       (_role: MemberRole) => true,
   rsvp_events:       (_role: MemberRole) => true,
@@ -59,7 +59,7 @@ export const PERMISSIONS = {
   export_financials: (role: MemberRole) => hasMinRole(role, 'treasurer'),
 
   // Polls
-  create_polls:      (role: MemberRole) => hasMinRole(role, 'vice_chairman'),
+  create_polls:      (_role: MemberRole) => true,
   vote_polls:        (_role: MemberRole) => true,
   close_polls:       (role: MemberRole) => hasMinRole(role, 'vice_chairman'),
 
@@ -67,13 +67,13 @@ export const PERMISSIONS = {
   upload_images:     (_role: MemberRole) => true,
   upload_gallery:    (_role: MemberRole) => true,                           // alias for upload_images
   delete_any_image:  (role: MemberRole) => hasMinRole(role, 'librarian'),
-  manage_albums:     (role: MemberRole) => hasMinRole(role, 'librarian'),
+  manage_albums:     (_role: MemberRole) => true,
 
   // Timeline
-  create_timeline:   (role: MemberRole) => hasMinRole(role, 'librarian'),
-  edit_timeline:     (role: MemberRole) => hasMinRole(role, 'librarian'),
+  create_timeline:   (_role: MemberRole) => true,
+  edit_timeline:     (_role: MemberRole) => true,
   delete_timeline:   (role: MemberRole) => hasMinRole(role, 'chairman'),
-  manage_timeline:   (role: MemberRole) => hasMinRole(role, 'librarian'),   // alias for edit_timeline
+  manage_timeline:   (_role: MemberRole) => true,   // alias for edit_timeline
 
   // Polls (extra alias)
   manage_polls:      (role: MemberRole) => hasMinRole(role, 'vice_chairman'), // alias for close_polls
