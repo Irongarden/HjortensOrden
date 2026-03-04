@@ -24,22 +24,30 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(data as Profile)
       }
       setLoading(false)
+    }).catch(() => {
+      // Ensure loading is cleared even if profile fetch fails
+      setLoading(false)
     })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user) {
-          const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          setProfile(data as Profile)
-        } else {
-          setProfile(null)
+        try {
+          if (session?.user) {
+            const { data } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+            setProfile(data as Profile)
+          } else {
+            setProfile(null)
+          }
+        } catch {
+          // Ignore profile fetch errors on auth state change
+        } finally {
+          setLoading(false)
         }
-        setLoading(false)
       }
     )
 
