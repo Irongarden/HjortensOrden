@@ -135,8 +135,8 @@ export function EventDetailPage({ id }: { id: string }) {
   const canLinkAlbum = can('manage_albums') || isCreator || can('edit_events')
 
   const handleDelete = async () => {
-    await deleteEvent.mutateAsync(event.id)
     router.push('/events')
+    await deleteEvent.mutateAsync(event.id)
   }
 
   return (

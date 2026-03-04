@@ -8,9 +8,13 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Profile } from '@/lib/types'
 
+// Stable module-level Supabase client — never recreated
+const supabase = createClient()
+
 function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setProfile, setLoading } = useAuthStore()
-  const supabase = createClient()
+  // Use individual selectors so AuthProvider only re-renders if these specific functions change
+  const setProfile = useAuthStore((s) => s.setProfile)
+  const setLoading = useAuthStore((s) => s.setLoading)
 
   useEffect(() => {
     // Initial session check
@@ -25,7 +29,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false)
     }).catch(() => {
-      // Ensure loading is cleared even if profile fetch fails
       setLoading(false)
     })
 
@@ -52,7 +55,8 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     )
 
     return () => subscription.unsubscribe()
-  }, [supabase, setProfile, setLoading])
+  // setProfile and setLoading are stable Zustand action references — safe as deps
+  }, [setProfile, setLoading])
 
   return <>{children}</>
 }

@@ -28,9 +28,9 @@ export function EventDetailModal({
   const isCreator = event.created_by === profile?.id
 
   const handleDelete = async () => {
-    await deleteEvent.mutateAsync(event.id)
     setDeleteOpen(false)
     onClose()
+    await deleteEvent.mutateAsync(event.id)
   }
 
   return (
