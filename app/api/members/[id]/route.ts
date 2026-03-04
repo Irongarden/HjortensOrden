@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 const ALLOWED_ROLES = ['admin', 'chairman', 'vice_chairman']
+const TREASURER_ROLES = ['admin', 'chairman', 'vice_chairman', 'treasurer']
 
 async function getAuthorisedUser() {
   const supabase = await createClient()
@@ -9,6 +10,33 @@ async function getAuthorisedUser() {
   if (!user) return null
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   return { user, role: profile?.role ?? '' }
+}
+
+// PATCH /api/members/[id] — update allowed member fields (e.g. auto_pay)
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const ctx = await getAuthorisedUser()
+  if (!ctx?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!TREASURER_ROLES.includes(ctx.role)) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
+
+  const body = await req.json()
+  const admin = createAdminClient()
+
+  // Only allow specific safe fields via this endpoint
+  const allowed: Record<string, unknown> = {}
+  if (typeof body.auto_pay === 'boolean') allowed.auto_pay = body.auto_pay
+
+  if (Object.keys(allowed).length === 0) {
+    return NextResponse.json({ error: 'Ingen gyldige felter at opdatere' }, { status: 400 })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (admin as any).from('profiles').update(allowed).eq('id', params.id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
 }
 
 // DELETE /api/members/[id] — permanently delete a member

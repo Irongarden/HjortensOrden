@@ -379,3 +379,23 @@ export function useRunRecurring() {
   })
 }
 
+export function useToggleAutoPay() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ userId, autoPay }: { userId: string; autoPay: boolean }) => {
+      const res = await fetch(`/api/members/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auto_pay: autoPay }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Fejl ved opdatering' }))
+        throw new Error(err.error ?? 'Fejl ved opdatering')
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['members'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}

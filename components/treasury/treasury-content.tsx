@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   TrendingUp, TrendingDown, DollarSign, Users,
-  Download, Plus, Pencil, Trash2, Play, RepeatIcon, Check, X,
+  Download, Plus, Pencil, Trash2, Play, RepeatIcon, Check, X, Mail, Zap,
 } from 'lucide-react'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -16,7 +16,7 @@ import {
   useExportTransactionsCSV, useRegisterTransaction, useRegisterPayment,
   useDeleteTransaction, useUpdateTransaction,
   useRecurringTransactions, useCreateRecurring, useDeleteRecurring, useRunRecurring,
-  useTreasurySetting, useUpdateTreasurySetting,
+  useTreasurySetting, useUpdateTreasurySetting, useToggleAutoPay,
 } from '@/lib/hooks/use-treasury'
 import { useMembers } from '@/lib/hooks/use-members'
 import { StatCard } from '@/components/ui/card'
@@ -46,6 +46,8 @@ export function TreasuryContent() {
   const [balCorrOpen, setBalCorrOpen] = useState(false)
   const [registeringAll, setRegisteringAll] = useState(false)
   const [registeringId, setRegisteringId] = useState<string | null>(null)
+  const [registeringAuto, setRegisteringAuto] = useState(false)
+  const [sendingReminders, setSendingReminders] = useState(false)
   const { can } = useAuthStore()
 
   const { data: balance, isLoading: balLoading } = useTreasuryBalance()
@@ -61,10 +63,14 @@ export function TreasuryContent() {
   const deleteTx = useDeleteTransaction()
   const runRecurring = useRunRecurring()
   const deleteRecurring = useDeleteRecurring()
+  const toggleAutoPay = useToggleAutoPay()
 
   const activeMembers = members.filter((m) => m.status === 'active')
   const paidThisMonth = payments.filter((p) => p.status === 'paid').length
   const pendingThisMonth = activeMembers.length - paidThisMonth
+  const autoPayUnpaid = activeMembers.filter(
+    (m) => m.auto_pay && !payments.find((p) => p.user_id === m.id && p.status === 'paid'),
+  )
 
   const currentFee = Number(feeSetting?.monthly_fee_dkk ?? 300)
 
@@ -72,6 +78,28 @@ export function TreasuryContent() {
     const val = parseFloat(feeInput.replace(',', '.'))
     if (isNaN(val) || val <= 0) return
     updateFee.mutate(val, { onSuccess: () => setFeeEditing(false) })
+  }
+
+  async function handleSendReminders() {
+    if (pendingThisMonth === 0) {
+      toast('Alle er registreret som betalt for denne måned', { icon: '✓' })
+      return
+    }
+    setSendingReminders(true)
+    try {
+      const res = await fetch('/api/treasury/send-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ month: payMonth }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Fejl ved afsendelse')
+      toast.success(`${data.sent} af ${data.total} påmindelser sendt`)
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Fejl ved afsendelse')
+    } finally {
+      setSendingReminders(false)
+    }
   }
 
   const TABS: { key: TabKey; label: string }[] = [
@@ -217,6 +245,39 @@ export function TreasuryContent() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-serif text-heading-sm text-parchment">Kontingenter</h3>
             <div className="flex items-center gap-2">
+              {can('register_payments') && autoPayUnpaid.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={registeringAuto}
+                  title="Registrer betaling for alle auto-betaling-medlemmer"
+                  onClick={async () => {
+                    setRegisteringAuto(true)
+                    let count = 0
+                    for (const m of autoPayUnpaid) {
+                      try {
+                        await registerPayment.mutateAsync({ userId: m.id, month: payMonth, memberName: m.full_name })
+                        count++
+                      } catch { /* continue */ }
+                    }
+                    setRegisteringAuto(false)
+                    toast.success(`${count} auto-betaling${count !== 1 ? 'er' : ''} registreret`)
+                  }}
+                >
+                  <Zap size={13} /> Kør auto ({autoPayUnpaid.length})
+                </Button>
+              )}
+              {can('register_payments') && pendingThisMonth > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={sendingReminders}
+                  title="Send e-mail påmindelser til ubetalt medlemmer"
+                  onClick={handleSendReminders}
+                >
+                  <Mail size={13} /> Send påmindelser ({pendingThisMonth})
+                </Button>
+              )}
               {can('register_payments') && (
                 <Button
                   variant="outline"
@@ -312,12 +373,32 @@ export function TreasuryContent() {
                   <div className="flex items-center gap-3">
                     <Avatar src={member.avatar_url} name={member.full_name} size="sm" />
                     <div>
-                      <p className="text-sm font-medium text-parchment">{member.full_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-parchment">{member.full_name}</p>
+                        {member.auto_pay && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-gold border border-gold/25 rounded-full px-1.5 py-0.5 leading-none">
+                            <Zap size={9} /> Auto
+                          </span>
+                        )}
+                      </div>
                       {payment?.paid_at && <p className="text-xs text-muted">Betalt {formatDate(payment.paid_at)}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <PaymentBadge status={status} />
+                    {can('register_payments') && (
+                      <button
+                        onClick={() => toggleAutoPay.mutate({ userId: member.id, autoPay: !member.auto_pay })}
+                        title={member.auto_pay ? 'Deaktiver automatisk betaling' : 'Aktivér automatisk betaling'}
+                        className={`p-1.5 rounded transition-colors ${
+                          member.auto_pay
+                            ? 'text-gold hover:text-gold/60'
+                            : 'text-muted hover:text-gold'
+                        }`}
+                      >
+                        <RepeatIcon size={13} />
+                      </button>
+                    )}
                     {can('register_payments') && status !== 'paid' && (
                       <Button
                         variant="green"

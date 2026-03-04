@@ -74,6 +74,7 @@ export interface Profile {
   invited_by: string | null
   two_factor_enabled: boolean
   is_founder: boolean
+  auto_pay: boolean
   created_at: string
   updated_at: string
 }
