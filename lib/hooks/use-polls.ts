@@ -53,6 +53,7 @@ export function usePolls(status?: PollStatus) {
 export function useActivePoll() {
   return useQuery({
     queryKey: ['polls', 'active', 'first'],
+    staleTime: 2 * 60_000,
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user ?? null

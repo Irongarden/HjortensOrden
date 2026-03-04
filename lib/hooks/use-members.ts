@@ -11,13 +11,14 @@ const supabase = createClient()
 export function useProfile() {
   return useQuery({
     queryKey: ['profile'],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return null
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return null
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', session.user.id)
         .single()
       if (error) throw error
       return data as Profile
@@ -107,13 +108,14 @@ export function useChangeMemberStatus() {
 export function useNotifications() {
   return useQuery({
     queryKey: ['notifications'],
+    staleTime: 20_000,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return []
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(50)
       if (error) throw error
@@ -141,12 +143,12 @@ export function useMarkAllNotificationsRead() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
-        .eq('user_id', user.id)
+        .eq('user_id', session.user.id)
         .eq('read', false)
       if (error) throw error
     },

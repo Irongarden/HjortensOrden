@@ -41,6 +41,7 @@ export function useEvents(month?: string) {
 export function useEvent(id: string) {
   return useQuery({
     queryKey: ['events', id],
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
@@ -66,6 +67,7 @@ export function useEvent(id: string) {
 export function useUpcomingEvents(limit = 5) {
   return useQuery({
     queryKey: ['events', 'upcoming', limit],
+    staleTime: 2 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')

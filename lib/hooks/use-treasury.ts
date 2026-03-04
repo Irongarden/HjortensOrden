@@ -12,6 +12,7 @@ const supabase = createClient()
 export function useTreasuryBalance() {
   return useQuery({
     queryKey: ['treasury', 'balance'],
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('treasury_balance')
@@ -26,6 +27,7 @@ export function useTreasuryBalance() {
 export function useTreasuryTransactions(limit = 50) {
   return useQuery({
     queryKey: ['treasury', 'transactions', limit],
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('treasury_transactions')
@@ -41,6 +43,7 @@ export function useTreasuryTransactions(limit = 50) {
 export function usePaymentRecords(month?: string) {
   return useQuery({
     queryKey: ['treasury', 'payments', month],
+    staleTime: 60_000,
     queryFn: async () => {
       let query = supabase
         .from('payment_records')
@@ -57,6 +60,7 @@ export function usePaymentRecords(month?: string) {
 export function useTreasuryForecast(months = 6) {
   return useQuery({
     queryKey: ['treasury', 'forecast', months],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       // Get active member count, current balance, and configured monthly fee
       const [balanceRes, membersRes, settingRes] = await Promise.all([
@@ -181,6 +185,7 @@ export function useRegisterPayment() {
 export function useTreasurySetting() {
   return useQuery({
     queryKey: ['treasury', 'settings'],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
@@ -287,6 +292,7 @@ export function useUpdateTransaction() {
 export function useRecurringTransactions() {
   return useQuery({
     queryKey: ['treasury', 'recurring'],
+    staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('recurring_transactions')
