@@ -29,6 +29,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="da" suppressHydrationWarning>
       <head>
+        {/* Unregister any stale service workers and clear their caches.
+            Runs inline before React hydrates so old cached HTML/JS is
+            wiped immediately on the next page load. */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              regs.forEach(function(reg) { reg.unregister(); });
+            });
+            caches.keys().then(function(names) {
+              names.forEach(function(name) { caches.delete(name); });
+            });
+          }
+        ` }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
