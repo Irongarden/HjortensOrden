@@ -12,7 +12,8 @@ yarn-error.log*
 *.pem
 .vercel
 *.tsbuildinfo
-public/sw.js
+# next-pwa generated files (disabled — kill-switch sw.js is now committed manually)
+# public/sw.js       <- intentionally tracked so the kill-switch deploys
 public/workbox-*.js
 public/worker-*.js
 public/fallback-*.js
