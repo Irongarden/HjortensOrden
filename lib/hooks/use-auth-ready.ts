@@ -3,17 +3,15 @@
 import { useAuthStore } from '@/lib/stores/auth-store'
 
 /**
- * Returns true once the auth bootstrap is complete — i.e. the server-side
- * profile has been injected into the Zustand store via AppShell's useLayoutEffect.
+ * Returns true once the auth bootstrap is complete — i.e. AppShell's
+ * useLayoutEffect has run (or AuthProvider's loadFromSession has completed
+ * as a fallback). This signals that the Supabase browser client's session
+ * is initialised and queries can fire safely.
  *
- * Checking `profile !== null` (not `!isLoading`) is the correct signal:
- * - `isLoading` was removed as a meaningful flag (it stays false).
- * - `profile` is set synchronously by useLayoutEffect before the first browser
- *   paint, so queries don't delay visually but they also don't race against
- *   an uninitialised Supabase session and cache empty results via RLS.
- * - HydrationBoundary cached queries (e.g. ['members']) are served from cache
- *   regardless of `enabled`, so they are unaffected.
+ * IMPORTANT: This is NOT "is the user logged in" — it just means the auth
+ * bootstrap has finished. Profile may still be null (e.g. no profile row).
+ * Queries gated by this flag will fire, but RLS will handle authorisation.
  */
 export function useAuthReady() {
-  return useAuthStore((s) => s.profile !== null)
+  return useAuthStore((s) => s.isBootstrapped)
 }

@@ -8,6 +8,7 @@ import { can } from '@/lib/rbac'
 interface AuthState {
   profile: Profile | null
   isLoading: boolean
+  isBootstrapped: boolean
   setProfile: (profile: Profile | null) => void
   setLoading: (loading: boolean) => void
   can: (permission: Permission) => boolean
@@ -16,6 +17,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   profile: null,
+  isBootstrapped: false,
   // Start as false — AppShell sets the actual profile via useLayoutEffect before
   // the first browser paint. Keeping this false means all React Query hooks are
   // enabled from the very first render and use HydrationBoundary cache data

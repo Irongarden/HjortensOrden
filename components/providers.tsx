@@ -1,8 +1,9 @@
 'use client'
 
-import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, QueryCache, useQueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/stores/auth-store'
@@ -23,11 +24,8 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     // If profile is already set via useLayoutEffect, we skip immediately.
     async function loadFromSession() {
       try {
-        // Skip if AppShell's useLayoutEffect already set a real profile from the
-        // server. isLoading starts as false in the store, so the only meaningful
-        // check is whether profile has been confirmed. useLayoutEffect always runs
-        // before this useEffect, so if initialProfile was non-null it's already set.
-        if (useAuthStore.getState().profile !== null) return
+        // Skip if AppShell's useLayoutEffect already bootstrapped auth.
+        if (useAuthStore.getState().isBootstrapped) return
 
         const { data: { session } } = await supabase.auth.getSession()
         if (!mounted) return
@@ -43,6 +41,9 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {
         if (mounted) setProfile(null)
+      } finally {
+        // Always mark bootstrap complete so queries are never permanently blocked
+        if (mounted) useAuthStore.setState({ isBootstrapped: true })
       }
     }
 
@@ -93,11 +94,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 60_000,
-            retry: 3,
+            retry: 2,
             retryDelay: (attempt) => Math.min(400 * 2 ** attempt, 8000),
             refetchOnWindowFocus: false,
           },
         },
+        queryCache: new QueryCache({
+          onError: (error: unknown, query) => {
+            // Only show toast for queries that have data — background refetch errors
+            // are less critical than initial load failures
+            if (query.state.data !== undefined) return
+            const msg = error instanceof Error ? error.message : 'Ukendt fejl'
+            toast.error(`Data kunne ikke hentes — ${msg}`, {
+              id: String(query.queryHash),
+              duration: 6000,
+            })
+          },
+        }),
       })
   )
 

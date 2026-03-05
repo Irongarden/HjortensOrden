@@ -16,9 +16,10 @@ export function AppShell({ children, initialProfile }: { children: React.ReactNo
   // useLayoutEffect runs before the browser paints AND before useEffect
   // (where AuthProvider fires its session fetch), so components always see a
   // valid profile from the very first paint.
-  // NOTE: isLoading starts as false in the store — no need to flip it here.
+  // isBootstrapped is always set to true here — even when initialProfile is
+  // null — so that queries are never permanently blocked.
   useLayoutEffect(() => {
-    useAuthStore.setState({ profile: initialProfile ?? null })
+    useAuthStore.setState({ profile: initialProfile ?? null, isBootstrapped: true })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
