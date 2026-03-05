@@ -24,25 +24,31 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     // If profile is already set via useLayoutEffect, we skip immediately.
     async function loadFromSession() {
       try {
-        // Skip if AppShell's useLayoutEffect already bootstrapped auth.
-        if (useAuthStore.getState().isBootstrapped) return
+        const alreadyBootstrapped = useAuthStore.getState().isBootstrapped
+        console.log('[Auth] loadFromSession — isBootstrapped:', alreadyBootstrapped)
+        if (alreadyBootstrapped) return
 
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error: sessionErr } = await supabase.auth.getSession()
+        if (sessionErr) console.error('[Auth] getSession error:', sessionErr)
+        console.log('[Auth] session:', session ? `user=${session.user.id}` : 'null')
         if (!mounted) return
         if (session?.user) {
-          const { data } = await supabase
+          const { data, error: profileErr } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single()
+          if (profileErr) console.error('[Auth] profile fetch error:', profileErr)
+          console.log('[Auth] profile:', data ? (data as Profile).id : 'null')
           if (mounted) setProfile(data as Profile)
         } else {
           if (mounted) setProfile(null)
         }
-      } catch {
+      } catch (e) {
+        console.error('[Auth] loadFromSession threw:', e)
         if (mounted) setProfile(null)
       } finally {
-        // Always mark bootstrap complete so queries are never permanently blocked
+        console.log('[Auth] bootstrap complete')
         if (mounted) useAuthStore.setState({ isBootstrapped: true })
       }
     }
@@ -53,9 +59,9 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     // token refresh). Skip INITIAL_SESSION — already handled above.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('[Auth] onAuthStateChange:', event, session ? `user=${session.user.id}` : 'null')
         if (event === 'INITIAL_SESSION') return
         if (!mounted) return
-        // On sign-out, wipe React Query cache so no stale data leaks to next user
         if (event === 'SIGNED_OUT') {
           queryClient.clear()
           if (mounted) setProfile(null)
@@ -63,16 +69,19 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         try {
           if (session?.user) {
-            const { data } = await supabase
+            const { data, error: profileErr } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
               .single()
+            if (profileErr) console.error('[Auth] profile re-fetch error:', profileErr)
+            console.log('[Auth] profile refreshed:', data ? (data as Profile).id : 'null')
             if (mounted) setProfile(data as Profile)
           } else {
             if (mounted) setProfile(null)
           }
-        } catch {
+        } catch (e) {
+          console.error('[Auth] onAuthStateChange threw:', e)
           if (mounted) setProfile(null)
         }
       }
@@ -101,9 +110,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
         queryCache: new QueryCache({
           onError: (error: unknown, query) => {
-            // Only show toast for queries that have data — background refetch errors
-            // are less critical than initial load failures
-            if (query.state.data !== undefined) return
+            console.error('[Query] error for key', query.queryKey, '—', error)
             const msg = error instanceof Error ? error.message : 'Ukendt fejl'
             toast.error(`Data kunne ikke hentes — ${msg}`, {
               id: String(query.queryHash),

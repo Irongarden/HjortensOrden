@@ -19,6 +19,7 @@ export function AppShell({ children, initialProfile }: { children: React.ReactNo
   // isBootstrapped is always set to true here — even when initialProfile is
   // null — so that queries are never permanently blocked.
   useLayoutEffect(() => {
+    console.log('[AppShell] bootstrap — initialProfile:', initialProfile ? initialProfile.id : 'null')
     useAuthStore.setState({ profile: initialProfile ?? null, isBootstrapped: true })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

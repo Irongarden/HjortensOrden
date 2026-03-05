@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   CalendarDays, TrendingUp, CheckSquare,
@@ -34,6 +35,16 @@ export function DashboardContent() {
   const { data: treasury } = useTreasuryBalance()
   const { data: members } = useMembers()
 
+  // Client-only: avoid hydration mismatch (server=UTC, browser=CET)
+  const [greeting, setGreeting] = useState('')
+  const [dateString, setDateString] = useState('')
+  useEffect(() => {
+    const now = new Date()
+    const hour = now.getHours()
+    setGreeting(hour < 12 ? 'Godmorgen' : hour < 18 ? 'Goddag' : 'Godaften')
+    setDateString(now.toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))
+  }, [])
+
   const activeMembers = members?.filter((m) => m.status === 'active') ?? []
   const isTreasurer = can('view_treasury')
   const isLeadership = can('manage_members')
@@ -54,8 +65,6 @@ export function DashboardContent() {
     .sort((a, b) => a.daysUntil - b.daysUntil)
     .slice(0, 3)
 
-  const hour = today.getHours()
-  const greeting = hour < 12 ? 'Godmorgen' : hour < 18 ? 'Goddag' : 'Godaften'
   const firstName = profile?.full_name?.split(' ')[0] ?? ''
 
   // My attendance (upcoming events count where I'm attending)
@@ -69,10 +78,10 @@ export function DashboardContent() {
       <motion.div variants={item} className="flex items-end justify-between">
         <div>
           <p className="text-label-sm text-muted uppercase tracking-widest mb-1">
-            {new Date().toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {dateString}
           </p>
           <h1 className="font-serif text-display-md text-parchment">
-            {greeting}, {firstName}
+            {greeting}{greeting ? ',' : ''} {firstName}
           </h1>
           <p className="text-sm text-muted mt-1">Velkommen til Hjortens Orden</p>
         </div>
