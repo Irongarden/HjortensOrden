@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -202,6 +203,8 @@ function SidebarContent({ collapsed, onNavClick }: { collapsed: boolean; onNavCl
 
 export function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useUIStore()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
   return (
     <>
@@ -217,35 +220,37 @@ export function Sidebar() {
         <SidebarContent collapsed={!sidebarOpen} />
       </aside>
 
-      {/* Mobile Drawer */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-              onClick={() => setSidebarOpen(false)}
-            />
-            <motion.aside
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="lg:hidden fixed left-0 top-0 h-full w-sidebar bg-charcoal border-r border-border z-50"
-            >
-              <button
+      {/* Mobile Drawer — client-only to prevent framer-motion SSR hydration mismatch */}
+      {mounted && (
+        <AnimatePresence>
+          {sidebarOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
                 onClick={() => setSidebarOpen(false)}
-                className="absolute top-4 right-4 p-2 rounded-md text-muted hover:text-parchment"
+              />
+              <motion.aside
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="lg:hidden fixed left-0 top-0 h-full w-sidebar bg-charcoal border-r border-border z-50"
               >
-                <X size={18} />
-              </button>
-              <SidebarContent collapsed={false} onNavClick={() => setSidebarOpen(false)} />
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="absolute top-4 right-4 p-2 rounded-md text-muted hover:text-parchment"
+                >
+                  <X size={18} />
+                </button>
+                <SidebarContent collapsed={false} onNavClick={() => setSidebarOpen(false)} />
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+      )}
     </>
   )
 }
