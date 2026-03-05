@@ -3,28 +3,22 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { createBrowserClient } from '@supabase/ssr'
 import {
   Shield, ScrollText, Users, Activity, Clock, RefreshCw,
   CheckCircle, XCircle, Link2, Plus, Copy, Trash2, ToggleLeft, ToggleRight, Pencil, X, Upload, AlertTriangle,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAuthReady } from '@/lib/hooks/use-auth-ready'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/ui/avatar'
 import { PageLoader } from '@/components/ui/skeleton'
 import { formatRelative } from '@/lib/utils'
-import type { Database } from '@/lib/types/supabase'
 import type { AuditEntry, Profile, PublicInviteLink, MemberRole, MemberStatus } from '@/lib/types'
 import toast from 'react-hot-toast'
 
-function supabaseClient() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-}
+const supabase = createClient()
 
 function useAuditLog() {
   const authReady = useAuthReady()
@@ -32,13 +26,13 @@ function useAuditLog() {
     queryKey: ['audit_log'],
     enabled: authReady,
     queryFn: async () => {
-      const { data, error } = await supabaseClient()
+      const { data, error } = await supabase
         .from('audit_log')
         .select('*, actor:profiles!actor_id(id, full_name, avatar_url)')
         .order('created_at', { ascending: false })
         .limit(50)
       if (error) throw error
-      return data as AuditEntry[]
+      return data as unknown as AuditEntry[]
     },
     staleTime: 30_000,
   })
@@ -50,7 +44,7 @@ function useAllMembers() {
     queryKey: ['members', 'all'],
     enabled: authReady,
     queryFn: async () => {
-      const { data, error } = await supabaseClient()
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false })
@@ -114,15 +108,11 @@ function EditMemberModal({ member, onClose }: { member: Profile; onClose: () => 
   const handleAvatarUpload = async (file: File) => {
     setAvatarUploading(true)
     try {
-      const db = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
       const ext = file.name.split('.').pop()
       const path = `${member.id}/profile.${ext}`
-      await db.storage.from('avatars').upload(path, file, { upsert: true })
+      await supabase.storage.from('avatars').upload(path, file, { upsert: true })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: { publicUrl } } = (db as any).storage.from('avatars').getPublicUrl(path)
+      const { data: { publicUrl } } = (supabase as any).storage.from('avatars').getPublicUrl(path)
       const cacheBusted = `${publicUrl}?t=${Date.now()}`
       setAvatarUrl(cacheBusted)
       await fetch(`/api/admin/members/${member.id}`, {

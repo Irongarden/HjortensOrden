@@ -5,13 +5,14 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+
+const supabase = createClient()
 import { ImagePlus, Link, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
-import type { Database } from '@/lib/types/supabase'
 import type { TimelineEntry } from '@/lib/types'
 
 const schema = z.object({
@@ -73,11 +74,6 @@ export function TimelineEntryModal({ open, entry, onClose }: TimelineEntryModalP
 
   const upsert = useMutation({
     mutationFn: async (data: FormData) => {
-      const supabase = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
-
       let finalImageUrl = data.image_url || null
 
       // Upload file to storage if provided

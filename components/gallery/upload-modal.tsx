@@ -6,8 +6,8 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
-import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import toast from 'react-hot-toast'
 import { UploadCloud, X, Image } from 'lucide-react'
@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import type { Database } from '@/lib/types/supabase'
+
+const supabase = createClient() as unknown as SupabaseClient<Database>
 
 const schema = z.object({
   title: z.string().min(2, 'Titel er for kort'),
@@ -34,10 +36,6 @@ function useEventsForPicker() {
   return useQuery({
     queryKey: ['events-picker'],
     queryFn: async () => {
-      const supabase = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      ) as unknown as SupabaseClient<Database>
       const { data, error } = await supabase
         .from('events')
         .select('id, title, starts_at')
@@ -77,11 +75,6 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
       return
     }
     setUploading(true)
-
-    const supabase = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
 
     try {
       const { data: { user } } = await supabase.auth.getUser()

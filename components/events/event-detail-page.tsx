@@ -9,8 +9,8 @@ import {
   Bell, BellRing, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { formatDistanceToNow, differenceInDays } from 'date-fns'
 import { da } from 'date-fns/locale'
@@ -29,12 +29,8 @@ import type { Database } from '@/lib/types/supabase'
 import Link from 'next/link'
 
 // ── Gallery helpers ───────────────────────────────────────────────────────────
-function createDB() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  ) as unknown as SupabaseClient<Database>
-}
+const _supabase = createClient()
+function createDB() { return _supabase as unknown as SupabaseClient<Database> }
 
 function useEventAlbums(eventId: string) {
   const authReady = useAuthReady()

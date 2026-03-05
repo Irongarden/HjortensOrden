@@ -12,11 +12,11 @@ import {
   Pencil, RefreshCw, BookOpen, RotateCcw, Save,
   Globe, Lock, ExternalLink, Download,
 } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import { formatDKK } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { useMembers } from '@/lib/hooks/use-members'
@@ -34,12 +34,8 @@ import { BUDGET_CATEGORIES } from '@/lib/types'
 // ─────────────────────────────────────────────────────────────────────────────
 // Supabase helper
 // ─────────────────────────────────────────────────────────────────────────────
-function supa() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  ) as unknown as SupabaseClient<Database>
-}
+const _supabase = createClient()
+function supa() { return _supabase as unknown as SupabaseClient<Database> }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lifecycle config

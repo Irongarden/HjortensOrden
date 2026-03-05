@@ -6,8 +6,10 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+
+const supabase = createClient()
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useUpdateProfile } from '@/lib/hooks/use-members'
 import { Button } from '@/components/ui/button'
@@ -15,7 +17,6 @@ import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/ui/avatar'
 import { RoleBadge, StatusBadge } from '@/components/ui/badge'
 import { formatDate, getMembershipYears } from '@/lib/utils'
-import type { Database } from '@/lib/types/supabase'
 import { useEffect } from 'react'
 
 async function geocodeCity(city: string): Promise<{ lat: number; lng: number } | null> {
@@ -59,10 +60,6 @@ export function ProfileContent() {
     const file = e.target.files?.[0]
     if (!file || !profile) return
     setUploading(true)
-    const supabase = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
     const ext = file.name.split('.').pop()
     const path = `${profile.id}/avatar.${ext}`
     const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })

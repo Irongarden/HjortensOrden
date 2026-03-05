@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Trash2, Upload, UploadCloud, Loader2 } from 'lucide-react'
 import Lightbox from 'yet-another-react-lightbox'
 import 'yet-another-react-lightbox/styles.css'
-import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 import { PageLoader } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAuthReady } from '@/lib/hooks/use-auth-ready'
@@ -17,12 +17,8 @@ import toast from 'react-hot-toast'
 import type { Database } from '@/lib/types/supabase'
 import type { GalleryAlbum, GalleryImage } from '@/lib/types'
 
-function createDB() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  ) as unknown as SupabaseClient<Database>
-}
+const supabase = createClient() as unknown as SupabaseClient<Database>
+function createDB() { return supabase }
 
 function useAlbumImages(albumId: string) {
   const authReady = useAuthReady()

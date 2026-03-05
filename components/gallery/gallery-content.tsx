@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Plus, Images, Pencil, Trash2, X, Calendar } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { Button } from '@/components/ui/button'
@@ -18,15 +18,13 @@ import toast from 'react-hot-toast'
 import type { Database } from '@/lib/types/supabase'
 import type { GalleryAlbum } from '@/lib/types'
 
+const supabase = createClient() as unknown as SupabaseClient<Database>
+
 function useAlbums() {
   const authReady = useAuthReady()
   return useQuery({
     queryKey: ['gallery-albums'],
     queryFn: async () => {
-      const supabase = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      ) as unknown as SupabaseClient<Database>
       const { data, error } = await supabase
         .from('gallery_albums')
         .select('*, gallery_images(count), event:events(id, title)')
@@ -43,18 +41,14 @@ function useDeleteAlbum() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const db = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      ) as unknown as SupabaseClient<Database>
       // Fetch image storage paths so we can clean up storage
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: imgs } = await (db as any).from('gallery_images').select('storage_path').eq('album_id', id)
+      const { data: imgs } = await (supabase as any).from('gallery_images').select('storage_path').eq('album_id', id)
       if (imgs?.length) {
-        await db.storage.from('gallery').remove(imgs.map((i: { storage_path: string }) => i.storage_path))
+        await supabase.storage.from('gallery').remove(imgs.map((i: { storage_path: string }) => i.storage_path))
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (db as any).from('gallery_albums').delete().eq('id', id)
+      const { error } = await (supabase as any).from('gallery_albums').delete().eq('id', id)
       if (error) throw error
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['gallery-albums'] }); toast.success('Album slettet') },
@@ -66,11 +60,7 @@ function useUpdateAlbum() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<GalleryAlbum> & { id: string }) => {
-      const db = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      ) as unknown as SupabaseClient<Database>
-      const { error } = await db.from('gallery_albums').update(updates).eq('id', id)
+      const { error } = await supabase.from('gallery_albums').update(updates).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['gallery-albums'] }); toast.success('Album opdateret') },
@@ -83,11 +73,7 @@ function useEventsForPicker() {
   return useQuery({
     queryKey: ['events-picker'],
     queryFn: async () => {
-      const db = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      ) as unknown as SupabaseClient<Database>
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('events')
         .select('id, title, starts_at')
         .order('starts_at', { ascending: false })

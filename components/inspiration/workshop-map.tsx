@@ -2,19 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { MapPin } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
 import { MemberMap } from '@/components/members/member-map'
 import type { ExtraMarker } from '@/components/members/member-map'
 import { useMembers } from '@/lib/hooks/use-members'
 import { useEvents } from '@/lib/hooks/use-events'
-import type { Database } from '@/lib/types/supabase'
+import { createClient } from '@/lib/supabase/client'
 
-function supa() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-}
+const supabase = createClient()
+function supa() { return supabase }
 
 export function WorkshopMap() {
   const { data: members = [] } = useMembers()

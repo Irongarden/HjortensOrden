@@ -10,9 +10,9 @@ import {
   CheckCircle2, Clock, Trash2, Map, NotebookPen,
   Calendar, MapPin, ExternalLink, Pencil, Hammer,
 } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import dynamic from 'next/dynamic'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import { formatDKK } from '@/lib/utils'
@@ -45,12 +45,8 @@ interface EventOption { id: string; title: string; starts_at: string }
 // ──────────────────────────────────────────────────────────────────────────────
 // Supabase helper
 // ──────────────────────────────────────────────────────────────────────────────
-function supa() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  ) as unknown as SupabaseClient<Database>
-}
+const supabase = createClient()
+function supa() { return supabase }
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Hooks
