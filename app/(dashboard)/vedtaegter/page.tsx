@@ -1,5 +1,10 @@
 import type { Metadata } from 'next'
-import { VedtaegterContent } from '@/components/vedtaegter/vedtaegter-content'
+import dynamic from 'next/dynamic'
+
+const VedtaegterContent = dynamic(
+  () => import('@/components/vedtaegter/vedtaegter-content').then((m) => m.VedtaegterContent),
+  { ssr: false },
+)
 
 export const metadata: Metadata = { title: 'Vedtægter — Hjortens Orden' }
 

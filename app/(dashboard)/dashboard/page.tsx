@@ -1,20 +1,14 @@
-import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
-import { DashboardContent } from '@/components/dashboard/dashboard-content'
+import dynamic from 'next/dynamic'
 import { PageLoader } from '@/components/ui/skeleton'
-import { redirect } from 'next/navigation'
+
+const DashboardContent = dynamic(
+  () => import('@/components/dashboard/dashboard-content').then((m) => m.DashboardContent),
+  { ssr: false, loading: () => <PageLoader /> },
+)
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
-export default async function DashboardPage() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  return (
-    <Suspense fallback={<PageLoader />}>
-      <DashboardContent />
-    </Suspense>
-  )
+export default function DashboardPage() {
+  return <DashboardContent />
 }

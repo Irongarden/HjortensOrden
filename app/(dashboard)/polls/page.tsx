@@ -1,5 +1,10 @@
 import type { Metadata } from 'next'
-import { PollsContent } from '@/components/polls/polls-content'
+import dynamic from 'next/dynamic'
+
+const PollsContent = dynamic(
+  () => import('@/components/polls/polls-content').then((m) => m.PollsContent),
+  { ssr: false },
+)
 
 export const metadata: Metadata = { title: 'Afstemninger' }
 

@@ -1,7 +1,12 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { TreasuryContent } from '@/components/treasury/treasury-content'
+import dynamic from 'next/dynamic'
+
+const TreasuryContent = dynamic(
+  () => import('@/components/treasury/treasury-content').then((m) => m.TreasuryContent),
+  { ssr: false },
+)
 
 export const metadata: Metadata = { title: 'Kasserer' }
 

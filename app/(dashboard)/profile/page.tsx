@@ -1,5 +1,10 @@
 import type { Metadata } from 'next'
-import { ProfileContent } from '@/components/profile/profile-content'
+import dynamic from 'next/dynamic'
+
+const ProfileContent = dynamic(
+  () => import('@/components/profile/profile-content').then((m) => m.ProfileContent),
+  { ssr: false },
+)
 
 export const metadata: Metadata = { title: 'Min Profil' }
 

@@ -1,14 +1,14 @@
-import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { InspirationContent } from '@/components/inspiration/inspiration-content'
+import dynamic from 'next/dynamic'
 import { PageLoader } from '@/components/ui/skeleton'
+
+const InspirationContent = dynamic(
+  () => import('@/components/inspiration/inspiration-content').then((m) => m.InspirationContent),
+  { ssr: false, loading: () => <PageLoader /> },
+)
 
 export const metadata: Metadata = { title: 'Inspiration' }
 
 export default function InspirationPage() {
-  return (
-    <Suspense fallback={<PageLoader />}>
-      <InspirationContent />
-    </Suspense>
-  )
+  return <InspirationContent />
 }
