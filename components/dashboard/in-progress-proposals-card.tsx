@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { formatRelative } from '@/lib/utils'
 import { Hammer, ArrowRight, CalendarDays } from 'lucide-react'
 import Link from 'next/link'
@@ -29,10 +30,11 @@ type ProposalRow = {
 
 export function InProgressProposalsCard() {
   const { profile } = useAuthStore()
+  const authReady = useAuthReady()
 
   const { data: proposals = [], isLoading } = useQuery<ProposalRow[]>({
     queryKey: ['proposals', 'in-progress', profile?.id],
-    enabled: !!profile?.id,
+    enabled: authReady && !!profile?.id,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)

@@ -4,31 +4,31 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Plus, AlertTriangle } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TimelineEntry } from '@/components/timeline/timeline-entry'
 import { TimelineEntryModal } from '@/components/timeline/timeline-entry-modal'
-import type { Database } from '@/lib/types/supabase'
 import type { TimelineEntry as TEntry } from '@/lib/types'
 
+const supabase = createClient()
+
 function useTimelineEntries() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['timeline'],
+    staleTime: 60_000,
+    enabled: authReady,
     queryFn: async () => {
-      const supabase = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
       const { data, error } = await supabase
         .from('timeline_entries')
         .select('*, creator:profiles!created_by(id, full_name, avatar_url)')
         .order('entry_date', { ascending: false })
       if (error) throw error
-      return data as TEntry[]
+      return data as unknown as TEntry[]
     },
-    staleTime: 60_000,
   })
 }
 
@@ -42,10 +42,6 @@ export function TimelineContent() {
 
   const deleteEntry = useMutation({
     mutationFn: async (id: string) => {
-      const supabase = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).from('timeline_entries').delete().eq('id', id)
       if (error) throw error

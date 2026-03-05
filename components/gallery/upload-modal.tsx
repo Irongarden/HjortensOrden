@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import toast from 'react-hot-toast'
 import { UploadCloud, X, Image } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ interface UploadModalProps {
 }
 
 function useEventsForPicker() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['events-picker'],
     queryFn: async () => {
@@ -45,6 +47,7 @@ function useEventsForPicker() {
       return data as { id: string; title: string; starts_at: string }[]
     },
     staleTime: 120_000,
+    enabled: authReady,
   })
 }
 

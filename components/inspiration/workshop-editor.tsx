@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import { formatDKK } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { useMembers } from '@/lib/hooks/use-members'
 import toast from 'react-hot-toast'
 import type { Database } from '@/lib/types/supabase'
@@ -91,6 +92,7 @@ const STAGE_IDX: Record<LifecycleStage, number> = {
 // Local hooks
 // ─────────────────────────────────────────────────────────────────────────────
 function useBudgetPlanned(proposalId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['budget_planned', proposalId],
     queryFn: async () => {
@@ -100,10 +102,12 @@ function useBudgetPlanned(proposalId: string) {
       if (error) throw error
       return (data ?? []) as BudgetPlannedLine[]
     },
+    enabled: authReady && !!proposalId,
   })
 }
 
 function useBudgetActual(proposalId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['budget_actual', proposalId],
     queryFn: async () => {
@@ -113,10 +117,12 @@ function useBudgetActual(proposalId: string) {
       if (error) throw error
       return (data ?? []) as BudgetActualLine[]
     },
+    enabled: authReady && !!proposalId,
   })
 }
 
 function useTasks(proposalId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['tasks', proposalId],
     queryFn: async () => {
@@ -129,10 +135,12 @@ function useTasks(proposalId: string) {
       if (error) throw error
       return (data ?? []) as ProposalTask[]
     },
+    enabled: authReady && !!proposalId,
   })
 }
 
 function useProgramSlots(proposalId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['program_slots', proposalId],
     queryFn: async () => {
@@ -145,10 +153,12 @@ function useProgramSlots(proposalId: string) {
       if (error) throw error
       return (data ?? []) as ProgramSlot[]
     },
+    enabled: authReady && !!proposalId,
   })
 }
 
 function useRSVP(proposalId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['rsvp', proposalId],
     queryFn: async () => {
@@ -160,10 +170,12 @@ function useRSVP(proposalId: string) {
       if (error) throw error
       return (data ?? []) as ProposalRSVP[]
     },
+    enabled: authReady && !!proposalId,
   })
 }
 
 function useEvaluation(proposalId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['evaluation', proposalId],
     queryFn: async () => {
@@ -172,10 +184,12 @@ function useEvaluation(proposalId: string) {
         .from('proposal_evaluations').select('*').eq('proposal_id', proposalId).maybeSingle()
       return data as ProposalEvaluation | null
     },
+    enabled: authReady && !!proposalId,
   })
 }
 
 function useAuditLog(proposalId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['audit_log', proposalId],
     queryFn: async () => {
@@ -189,10 +203,12 @@ function useAuditLog(proposalId: string) {
       if (error) throw error
       return (data ?? []) as ProposalAuditEntry[]
     },
+    enabled: authReady && !!proposalId,
   })
 }
 
 function useAISuggestions(proposalId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['ai_suggestions', proposalId],
     queryFn: async () => {
@@ -205,6 +221,7 @@ function useAISuggestions(proposalId: string) {
         .limit(10)
       return (data ?? []) as ProposalAISuggestion[]
     },
+    enabled: authReady && !!proposalId,
   })
 }
 
@@ -2086,6 +2103,7 @@ export function WorkshopEditor({ proposal: initialProposal, onClose }: { proposa
   const del = useDeleteProposal()
   const logAudit = useLogAudit()
   const { profile } = useAuthStore()
+  const authReady = useAuthReady()
   const { data: members = [] } = useMembers()
   const { data: tasks = [], isLoading: tasksLoading } = useTasks(initialProposal.id)
   const [proposal, setProposalLocal] = useState(initialProposal)
@@ -2105,6 +2123,7 @@ export function WorkshopEditor({ proposal: initialProposal, onClose }: { proposa
       return data as ArrangementProposal | null
     },
     staleTime: 10_000,
+    enabled: authReady && !!proposal.id,
     placeholderData: (prev: ArrangementProposal | null | undefined) => prev ?? undefined,
   })
   const currentProposal = freshProposal ?? proposal
@@ -2222,7 +2241,7 @@ export function WorkshopEditor({ proposal: initialProposal, onClose }: { proposa
   const [rsvpingEvent, setRsvpingEvent] = useState(false)
   const { data: myEventRsvp } = useQuery({
     queryKey: ['event_my_rsvp', currentProposal.linked_event_id, profile?.id],
-    enabled: !!currentProposal.linked_event_id && !!profile?.id,
+    enabled: authReady && !!currentProposal.linked_event_id && !!profile?.id,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supa() as any)
@@ -2236,7 +2255,7 @@ export function WorkshopEditor({ proposal: initialProposal, onClose }: { proposa
   })
   const { data: eventAttendees = [] } = useQuery({
     queryKey: ['event_attendees', currentProposal.linked_event_id],
-    enabled: !!currentProposal.linked_event_id,
+    enabled: authReady && !!currentProposal.linked_event_id,
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data } = await (supa() as any)

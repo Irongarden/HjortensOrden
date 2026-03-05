@@ -11,6 +11,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { PageLoader } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { Button } from '@/components/ui/button'
 import toast from 'react-hot-toast'
 import type { Database } from '@/lib/types/supabase'
@@ -24,6 +25,7 @@ function createDB() {
 }
 
 function useAlbumImages(albumId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['gallery-images', albumId],
     queryFn: async () => {
@@ -37,6 +39,7 @@ function useAlbumImages(albumId: string) {
       return data as unknown as GalleryImage[]
     },
     staleTime: 60_000,
+    enabled: authReady && !!albumId,
   })
 }
 

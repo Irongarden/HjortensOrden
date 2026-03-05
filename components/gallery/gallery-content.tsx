@@ -7,6 +7,7 @@ import { Plus, Images, Pencil, Trash2, X, Calendar } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -18,6 +19,7 @@ import type { Database } from '@/lib/types/supabase'
 import type { GalleryAlbum } from '@/lib/types'
 
 function useAlbums() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['gallery-albums'],
     queryFn: async () => {
@@ -33,6 +35,7 @@ function useAlbums() {
       return data as unknown as (GalleryAlbum & { gallery_images: { count: number }[] })[]
     },
     staleTime: 60_000,
+    enabled: authReady,
   })
 }
 
@@ -76,6 +79,7 @@ function useUpdateAlbum() {
 }
 
 function useEventsForPicker() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['events-picker'],
     queryFn: async () => {
@@ -92,6 +96,7 @@ function useEventsForPicker() {
       return data as { id: string; title: string; starts_at: string }[]
     },
     staleTime: 120_000,
+    enabled: authReady,
   })
 }
 

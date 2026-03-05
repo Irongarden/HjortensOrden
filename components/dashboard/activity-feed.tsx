@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { formatRelative } from '@/lib/utils'
 import { SkeletonRow } from '@/components/ui/skeleton'
 import { Activity, CalendarDays, Vote, Users, Hammer } from 'lucide-react'
@@ -37,8 +38,10 @@ type FeedEntry = {
 }
 
 export function ActivityFeed() {
+  const authReady = useAuthReady()
   const { data: entries = [], isLoading } = useQuery<FeedEntry[]>({
     queryKey: ['activity-feed-v2'],
+    enabled: authReady,
     queryFn: async () => {
       const [auditRes, proposalRes, pollVoteRes] = await Promise.all([
         // Global audit log (privileged — may return empty for regular members, that's fine)

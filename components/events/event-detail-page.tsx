@@ -16,6 +16,7 @@ import { formatDistanceToNow, differenceInDays } from 'date-fns'
 import { da } from 'date-fns/locale'
 import { useEvent, useRSVP, useDeleteEvent, useEventNotifications, useSendEventNotification } from '@/lib/hooks/use-events'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { Button } from '@/components/ui/button'
 import { AvatarGroup, Avatar } from '@/components/ui/avatar'
 import { RSVPBadge, EventStatusBadge } from '@/components/ui/badge'
@@ -36,6 +37,7 @@ function createDB() {
 }
 
 function useEventAlbums(eventId: string) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['event-albums', eventId],
     queryFn: async () => {
@@ -50,11 +52,12 @@ function useEventAlbums(eventId: string) {
       return data as GalleryAlbum[]
     },
     staleTime: 60_000,
-    enabled: !!eventId,
+    enabled: authReady && !!eventId,
   })
 }
 
-function useAllAlbumsForPicker(enabled: boolean) {
+function useAllAlbumsForPicker(pickerEnabled: boolean) {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['gallery-albums-picker'],
     queryFn: async () => {
@@ -69,7 +72,7 @@ function useAllAlbumsForPicker(enabled: boolean) {
       return data as GalleryAlbum[]
     },
     staleTime: 60_000,
-    enabled,
+    enabled: authReady && pickerEnabled,
   })
 }
 

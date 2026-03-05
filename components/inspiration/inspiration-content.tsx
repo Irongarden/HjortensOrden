@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import { formatDKK } from '@/lib/utils'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { useMembers } from '@/lib/hooks/use-members'
 import toast from 'react-hot-toast'
 import type { Database } from '@/lib/types/supabase'
@@ -55,6 +56,7 @@ function supa() {
 // Hooks
 // ──────────────────────────────────────────────────────────────────────────────
 function useProposals() {
+  const authReady = useAuthReady()
   return useQuery({
     queryKey: ['arrangement_proposals'],
     queryFn: async () => {
@@ -67,6 +69,7 @@ function useProposals() {
       return (data ?? []) as ArrangementProposal[]
     },
     staleTime: 30_000,
+    enabled: authReady,
   })
 }
 
@@ -311,6 +314,7 @@ type Tab = 'inspiration' | 'workshop'
 
 export function InspirationContent() {
   const { profile } = useAuthStore()
+  const authReady = useAuthReady()
   const [activeTab, setActiveTab] = useState<Tab>('inspiration')
 
   // AI inspiration state
@@ -340,6 +344,7 @@ export function InspirationContent() {
       return data
     },
     staleTime: 120_000,
+    enabled: authReady,
   })
 
   const { data: proposals = [], isLoading: proposalsLoading } = useProposals()
