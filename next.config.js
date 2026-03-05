@@ -1,12 +1,4 @@
 /** @type {import('next').NextConfig} */
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  register: false,
-  skipWaiting: true,
-  disable: true, // Disabled: was causing stale service worker caching of old JS chunks
-  buildExcludes: [/middleware-manifest\.json$/],
-})
-
 const nextConfig = {
   reactStrictMode: true,
   images: {
@@ -24,4 +16,4 @@ const nextConfig = {
   },
 }
 
-module.exports = withPWA(nextConfig)
+module.exports = nextConfig
