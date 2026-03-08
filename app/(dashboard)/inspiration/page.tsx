@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import dynamic from 'next/dynamic'
-import { PageLoader } from '@/components/ui/skeleton'
 
 const InspirationContent = dynamic(
   () => import('@/components/inspiration/inspiration-content').then((m) => m.InspirationContent),
-  { ssr: false, loading: () => <PageLoader /> },
+  { ssr: false },
 )
 
 export const metadata: Metadata = { title: 'Inspiration' }
