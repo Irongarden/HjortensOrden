@@ -76,26 +76,25 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        // SIGNED_IN or TOKEN_REFRESHED - token was just refreshed.
-        // Invalidate all queries so they re-run with the fresh token.
-        // This fixes data disappearing on token refresh.
-        if (session?.user) {
-          try {
-            const { data, error: profileErr } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single()
-            if (profileErr) console.error('[Auth] profile re-fetch error:', profileErr)
-            console.log('[Auth] profile refreshed:', data ? (data as Profile).id : 'null')
-            if (mounted) {
-              setProfile(data as Profile)
-              queryClient.invalidateQueries()
-            }
-          } catch (e) {
-            console.error('[Auth] onAuthStateChange threw:', e)
-          }
+        // SIGNED_IN or TOKEN_REFRESHED - the JWT was just refreshed.
+        //
+        // We do NOT await any supabase.from() call here: the session lock can
+        // still be held right after the refresh fires, causing an indefinite hang.
+        // Instead we yield to the event loop (setTimeout 0) which:
+        //   a) lets Supabase finish writing the new session to cookies/memory
+        //   b) lets React flush ClientShell setMounted + AppShell useLayoutEffect
+        //      so isBootstrapped is true and queries are already active before
+        //      we invalidate them.
+        console.log('[Auth] SIGNED_IN: yielding to event loop — mounted=', mounted)
+        bootstrappedByEvent = true
+        await new Promise<void>((r) => setTimeout(r, 0))
+        console.log('[Auth] SIGNED_IN: after yield — mounted=', mounted, 'isBootstrapped=', useAuthStore.getState().isBootstrapped)
+        if (!mounted) return
+        if (!useAuthStore.getState().isBootstrapped) {
+          useAuthStore.setState({ isBootstrapped: true })
         }
+        console.log('[Auth] SIGNED_IN: calling refetchQueries')
+        await queryClient.refetchQueries({ type: 'active' })
       }
     )
 
@@ -110,7 +109,10 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           const { data } = await supabase
             .from('profiles').select('*').eq('id', session.user.id).single()
-          if (mounted) setProfile(data as Profile)
+          if (mounted) {
+            setProfile(data as Profile)
+            queryClient.invalidateQueries()
+          }
         } else {
           if (mounted) setProfile(null)
         }
