@@ -18,13 +18,18 @@
  * ship normally, and the error disappears.
  */
 
+// v3 — kill-switch only, no workbox code
+console.log('[SW kill-switch] install fired — will skipWaiting')
+
 self.addEventListener('install', () => {
   // Skip the waiting phase — activate immediately, even if old SW is still
   // handling pages.
+  console.log('[SW kill-switch] skipWaiting')
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
+  console.log('[SW kill-switch] activate — clearing all caches and unregistering')
   event.waitUntil(
     caches
       .keys()
@@ -42,7 +47,10 @@ self.addEventListener('activate', (event) => {
         })
       })
       // Unregister this kill-switch so no SW is active from this point on
-      .then(() => self.registration.unregister())
+      .then(() => {
+        console.log('[SW kill-switch] unregistering self')
+        return self.registration.unregister()
+      })
   )
 })
 
