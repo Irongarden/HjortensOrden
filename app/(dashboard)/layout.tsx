@@ -1,9 +1,18 @@
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { AppShell } from '@/components/layout/app-shell'
+import { ClientShell } from '@/components/layout/client-shell'
 import type { Profile } from '@/lib/types'
-import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
 
+/**
+ * Dashboard layout — server side only does:
+ * 1. Auth guard (redirect to /login if not authenticated)
+ * 2. Profile fetch (passed as prop so the shell has it immediately on mount)
+ *
+ * Everything else — AppShell, Sidebar, Topbar, page content — is rendered
+ * client-side only via ClientShell (dynamic ssr:false).  This eliminates all
+ * React hydration errors (#422) that were caused by Zustand store values
+ * differing between the server-side singleton and the fresh client state.
+ */
 export default async function DashboardLayout({
   children,
 }: {
@@ -16,53 +25,16 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
-  // Use the service-role admin client for all data fetching here.
-  // This bypasses RLS and is not affected by the user's JWT expiry.
-  // We already verified identity above via getUser(), so it's safe.
   const admin = createAdminClient()
-  // staleTime must match (or exceed) the client QueryClient default so that
-  // HydrationBoundary data is never considered immediately stale. Without this,
-  // React Query sees staleTime=0, immediately background-refetches after hydration,
-  // and the browser client can race against a token-refresh — returning empty data.
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { staleTime: 5 * 60_000 } },
-  })
-
-  const [{ data: profile }] = await Promise.all([
-    // Current user profile
-    admin.from('profiles').select('*').eq('id', user.id).single(),
-
-    // Members list — dashboard stats, map, treasury, hierarchy, etc.
-    queryClient.prefetchQuery({
-      queryKey: ['members'],
-      queryFn: async () => {
-        const { data } = await admin.from('profiles').select('*').order('full_name')
-        return data ?? []
-      },
-    }),
-
-    // Upcoming events — dashboard card + events page
-    queryClient.prefetchQuery({
-      queryKey: ['events', 'upcoming', 5],
-      queryFn: async () => {
-        const { data } = await admin
-          .from('events')
-          .select('*, participants:event_participants(id, user_id, rsvp, responded_at, profile:profiles(id, full_name, avatar_url))')
-          .gte('starts_at', new Date().toISOString())
-          .eq('status', 'published')
-          .order('starts_at')
-          .limit(5)
-        return data ?? []
-      },
-    }),
-  ])
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
 
   return (
-    // Only dehydrate successful queries — never cache server-side errors
-    <HydrationBoundary state={dehydrate(queryClient, {
-      shouldDehydrateQuery: (query) => query.state.status === 'success',
-    })}>
-      <AppShell initialProfile={(profile as Profile) ?? null}>{children}</AppShell>
-    </HydrationBoundary>
+    <ClientShell initialProfile={(profile as Profile) ?? null}>
+      {children}
+    </ClientShell>
   )
 }

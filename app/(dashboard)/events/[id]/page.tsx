@@ -1,5 +1,10 @@
 import type { Metadata } from 'next'
-import { EventDetailPage } from '@/components/events/event-detail-page'
+import dynamic from 'next/dynamic'
+
+const EventDetailPage = dynamic(
+  () => import('@/components/events/event-detail-page').then((m) => m.EventDetailPage),
+  { ssr: false },
+)
 
 export const metadata: Metadata = { title: 'Begivenhed' }
 
