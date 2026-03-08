@@ -1,6 +1,6 @@
 'use client'
 
-// Module-level diagnostic — runs immediately when this chunk loads in the browser,
+// Module-level diagnostic - runs immediately when this chunk loads in the browser,
 // BEFORE any React rendering or hydration. If this never appears in console it
 // means an old cached JS bundle is being served (service worker or HTTP cache).
 console.log('[v5] providers.tsx loaded')
@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { Profile } from '@/lib/types'
 
-// Stable module-level Supabase client — never recreated
+// Stable module-level Supabase client - never recreated
 const supabase = createClient()
 
 function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -23,57 +23,64 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+    let bootstrappedByEvent = false
 
-    // ── Step 1: Read session from cookie storage.
-    // Runs only when AppShell couldn’t set a profile (server fetch failed).
-    // If profile is already set via useLayoutEffect, we skip immediately.
-    async function loadFromSession() {
-      try {
-        const alreadyBootstrapped = useAuthStore.getState().isBootstrapped
-        console.log('[Auth] loadFromSession — isBootstrapped:', alreadyBootstrapped)
-        if (alreadyBootstrapped) return
+    // onAuthStateChange is the single source of truth for auth state.
+    //
+    // WHY: on refresh, Supabase may refresh the JWT token at the exact same
+    // moment getSession() is called. During that window getSession() can return
+    // null, causing setProfile(null) + isBootstrapped:true, triggering React
+    // Query with no token -> RLS returns empty -> data disappears.
+    //
+    // Fix: bootstrap entirely from onAuthStateChange events:
+    //  - INITIAL_SESSION fires first with the real session -> bootstrap here.
+    //  - SIGNED_IN / TOKEN_REFRESHED fires when token refreshes -> invalidate
+    //    all queries so they re-run with the fresh token.
+    //  - SIGNED_OUT -> clear everything.
+    // getSession() fallback only used if INITIAL_SESSION never fires (offline).
 
-        const { data: { session }, error: sessionErr } = await supabase.auth.getSession()
-        if (sessionErr) console.error('[Auth] getSession error:', sessionErr)
-        console.log('[Auth] session:', session ? `user=${session.user.id}` : 'null')
-        if (!mounted) return
-        if (session?.user) {
-          const { data, error: profileErr } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          if (profileErr) console.error('[Auth] profile fetch error:', profileErr)
-          console.log('[Auth] profile:', data ? (data as Profile).id : 'null')
-          if (mounted) setProfile(data as Profile)
-        } else {
-          if (mounted) setProfile(null)
-        }
-      } catch (e) {
-        console.error('[Auth] loadFromSession threw:', e)
-        if (mounted) setProfile(null)
-      } finally {
-        console.log('[Auth] bootstrap complete')
-        if (mounted) useAuthStore.setState({ isBootstrapped: true })
-      }
-    }
-
-    loadFromSession()
-
-    // ── Step 2: Listen for subsequent auth state changes (sign-in, sign-out,
-    // token refresh). Skip INITIAL_SESSION — already handled above.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('[Auth] onAuthStateChange:', event, session ? `user=${session.user.id}` : 'null')
-        if (event === 'INITIAL_SESSION') return
+        console.log('[Auth] onAuthStateChange:', event, session ? 'user=' + session.user.id : 'null')
         if (!mounted) return
+
         if (event === 'SIGNED_OUT') {
+          bootstrappedByEvent = true
           queryClient.clear()
-          if (mounted) setProfile(null)
+          if (mounted) {
+            setProfile(null)
+            useAuthStore.setState({ isBootstrapped: true })
+          }
           return
         }
-        try {
+
+        if (event === 'INITIAL_SESSION') {
+          bootstrappedByEvent = true
           if (session?.user) {
+            try {
+              const { data, error: profileErr } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single()
+              if (profileErr) console.error('[Auth] profile fetch error (INITIAL_SESSION):', profileErr)
+              console.log('[Auth] profile (INITIAL_SESSION):', data ? (data as Profile).id : 'null')
+              if (mounted) setProfile(data as Profile)
+            } catch (e) {
+              console.error('[Auth] INITIAL_SESSION profile fetch threw:', e)
+            }
+          } else {
+            if (mounted) setProfile(null)
+          }
+          if (mounted) useAuthStore.setState({ isBootstrapped: true })
+          return
+        }
+
+        // SIGNED_IN or TOKEN_REFRESHED - token was just refreshed.
+        // Invalidate all queries so they re-run with the fresh token.
+        // This fixes data disappearing on token refresh.
+        if (session?.user) {
+          try {
             const { data, error: profileErr } = await supabase
               .from('profiles')
               .select('*')
@@ -81,19 +88,43 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
               .single()
             if (profileErr) console.error('[Auth] profile re-fetch error:', profileErr)
             console.log('[Auth] profile refreshed:', data ? (data as Profile).id : 'null')
-            if (mounted) setProfile(data as Profile)
-          } else {
-            if (mounted) setProfile(null)
+            if (mounted) {
+              setProfile(data as Profile)
+              queryClient.invalidateQueries()
+            }
+          } catch (e) {
+            console.error('[Auth] onAuthStateChange threw:', e)
           }
-        } catch (e) {
-          console.error('[Auth] onAuthStateChange threw:', e)
-          if (mounted) setProfile(null)
         }
       }
     )
 
+    // Fallback: if INITIAL_SESSION never fires (offline / init failure),
+    // bootstrap from getSession() after a short delay.
+    const fallbackTimer = setTimeout(async () => {
+      if (!mounted || bootstrappedByEvent) return
+      console.log('[Auth] fallback - INITIAL_SESSION never fired, calling getSession()')
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!mounted) return
+        if (session?.user) {
+          const { data } = await supabase
+            .from('profiles').select('*').eq('id', session.user.id).single()
+          if (mounted) setProfile(data as Profile)
+        } else {
+          if (mounted) setProfile(null)
+        }
+      } catch (e) {
+        console.error('[Auth] fallback getSession threw:', e)
+        if (mounted) setProfile(null)
+      } finally {
+        if (mounted) useAuthStore.setState({ isBootstrapped: true })
+      }
+    }, 3000)
+
     return () => {
       mounted = false
+      clearTimeout(fallbackTimer)
       subscription.unsubscribe()
     }
   }, [setProfile, queryClient])
@@ -115,9 +146,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
         queryCache: new QueryCache({
           onError: (error: unknown, query) => {
-            console.error('[Query] error for key', query.queryKey, '—', error)
+            console.error('[Query] error for key', query.queryKey, '-', error)
             const msg = error instanceof Error ? error.message : 'Ukendt fejl'
-            toast.error(`Data kunne ikke hentes — ${msg}`, {
+            toast.error('Data kunne ikke hentes - ' + msg, {
               id: String(query.queryHash),
               duration: 6000,
             })
