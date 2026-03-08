@@ -135,6 +135,52 @@ export function getSupabaseStorageUrl(path: string): string {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${path}`
 }
 
+/**
+ * Resize + compress an image file client-side using the Canvas API.
+ * If the image is already within limits it is returned unchanged.
+ *
+ * @param maxPx   Maximum width or height in pixels (default 2000)
+ * @param quality JPEG quality 0–1 (default 0.85)
+ */
+export async function compressImage(
+  file: File,
+  { maxPx = 2000, quality = 0.85 }: { maxPx?: number; quality?: number } = {},
+): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width <= maxPx && height <= maxPx) {
+        resolve(file)
+        return
+      }
+      if (width > height) {
+        height = Math.round((height / width) * maxPx)
+        width = maxPx
+      } else {
+        width = Math.round((width / height) * maxPx)
+        height = maxPx
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error('Komprimering fejlede')); return }
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
+        },
+        'image/jpeg',
+        quality,
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Kunne ikke indlæse billede')) }
+    img.src = url
+  })
+}
+
 // ── Misc ───────────────────────────────────────
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))

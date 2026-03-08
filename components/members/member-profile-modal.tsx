@@ -10,7 +10,7 @@ import { Select } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { Avatar } from '@/components/ui/avatar'
 import { RoleBadge, StatusBadge } from '@/components/ui/badge'
-import { formatDate, getMembershipYears } from '@/lib/utils'
+import { formatDate, getMembershipYears, compressImage } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import type { Profile, MemberRole, MemberStatus } from '@/lib/types'
 
@@ -56,10 +56,11 @@ export function MemberProfileModal({ member, onClose }: MemberProfileModalProps)
     const file = e.target.files?.[0]
     if (!file) return
     setAvatarUploading(true)
-    setAvatarPreview(URL.createObjectURL(file))
     try {
+      const compressed = await compressImage(file, { maxPx: 800, quality: 0.85 })
+      setAvatarPreview(URL.createObjectURL(compressed))
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', compressed)
       form.append('memberId', member.id)
       const res = await fetch('/api/upload/avatar', { method: 'POST', body: form })
       const json = await res.json()

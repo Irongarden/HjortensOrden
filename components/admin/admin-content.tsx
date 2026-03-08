@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/ui/avatar'
 import { PageLoader } from '@/components/ui/skeleton'
-import { formatRelative } from '@/lib/utils'
+import { formatRelative, compressImage } from '@/lib/utils'
 import type { AuditEntry, Profile, PublicInviteLink, MemberRole, MemberStatus } from '@/lib/types'
 import toast from 'react-hot-toast'
 
@@ -108,9 +108,11 @@ function EditMemberModal({ member, onClose }: { member: Profile; onClose: () => 
   const handleAvatarUpload = async (file: File) => {
     setAvatarUploading(true)
     try {
-      const ext = file.name.split('.').pop()
+      const compressed = await compressImage(file, { maxPx: 800, quality: 0.85 })
+      const ext = 'jpg'
       const path = `${member.id}/profile.${ext}`
-      await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+      const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, compressed, { upsert: true })
+      if (uploadErr) throw new Error(uploadErr.message)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: { publicUrl } } = (supabase as any).storage.from('avatars').getPublicUrl(path)
       const cacheBusted = `${publicUrl}?t=${Date.now()}`
@@ -121,8 +123,8 @@ function EditMemberModal({ member, onClose }: { member: Profile; onClose: () => 
         body: JSON.stringify({ avatar_url: publicUrl }),
       })
       toast.success('Profilbillede opdateret')
-    } catch {
-      toast.error('Kunne ikke uploade billede')
+    } catch (e) {
+      toast.error((e as Error).message || 'Kunne ikke uploade billede')
     } finally {
       setAvatarUploading(false)
     }

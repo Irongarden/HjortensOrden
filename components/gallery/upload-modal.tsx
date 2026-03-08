@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { useDropzone } from 'react-dropzone'
+import { useDropzone, type FileRejection } from 'react-dropzone'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { compressImage } from '@/lib/utils'
 import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import toast from 'react-hot-toast'
 import { UploadCloud, X, Image } from 'lucide-react'
@@ -63,8 +64,20 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
     setFiles((prev) => [...prev, ...accepted])
   }, [])
 
+  const onDropRejected = useCallback((rejections: FileRejection[]) => {
+    rejections.forEach(({ file, errors }) => {
+      const isTooLarge = errors.some((e) => e.code === 'file-too-large')
+      if (isTooLarge) {
+        toast.error(`"${file.name}" er for stor — maks. 10 MB`)
+      } else {
+        toast.error(`"${file.name}" kunne ikke tilføjes — kun billedfiler er tilladt`)
+      }
+    })
+  }, [])
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: { 'image/*': [] },
     maxSize: 10_000_000,
   })
@@ -90,12 +103,12 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
         .single()
       if (albumErr) throw albumErr
 
-      // Upload each image to storage, tracking paths
+      // Compress + upload each image to storage, tracking paths
       const uploads: { url: string; path: string }[] = []
       for (const file of files) {
-        const ext = file.name.split('.').pop()
-        const path = `${album.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-        const { error: storageErr } = await supabase.storage.from('gallery').upload(path, file)
+        const compressed = await compressImage(file, { maxPx: 2000, quality: 0.85 })
+        const path = `${album.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+        const { error: storageErr } = await supabase.storage.from('gallery').upload(path, compressed)
         if (storageErr) throw storageErr
         const { data: { publicUrl } } = supabase.storage.from('gallery').getPublicUrl(path)
         uploads.push({ url: publicUrl, path })
