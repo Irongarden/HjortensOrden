@@ -29,6 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="da" suppressHydrationWarning>
       <head>
+        {/* Kill any lingering service worker BEFORE any JS bundle loads.
+            Runs inline during HTML parse, so no SW can intercept it. */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(s){s.unregister();console.log('[SW-kill] unregistered SW: '+s.scope)})});}if('caches' in window){caches.keys().then(function(n){n.forEach(function(k){caches.delete(k)})})}console.log('[SW-kill] inline script ran')}catch(e){}})()` }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -36,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="bg-obsidian text-parchment antialiased">
+      <body className="bg-obsidian text-parchment antialiased" suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

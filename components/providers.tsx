@@ -1,5 +1,10 @@
 'use client'
 
+// Module-level diagnostic — runs immediately when this chunk loads in the browser,
+// BEFORE any React rendering or hydration. If this never appears in console it
+// means an old cached JS bundle is being served (service worker or HTTP cache).
+console.log('[v5] providers.tsx loaded')
+
 import { QueryClient, QueryClientProvider, QueryCache, useQueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
