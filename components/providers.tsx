@@ -100,16 +100,10 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!useAuthStore.getState().isBootstrapped) {
           useAuthStore.setState({ isBootstrapped: true })
         }
-        // Fetch fresh profile for auth store (token is now valid)
-        if (session?.user) {
-          try {
-            const { data } = await supabase
-              .from('profiles').select('*').eq('id', session.user.id).single()
-            if (mounted && data) setProfile(data as Profile)
-          } catch (e) {
-            console.error('[Auth] SIGNED_IN profile fetch threw:', e)
-          }
-        }
+        // Do NOT call supabase.from() here — the token-refresh lock may still
+        // be held, causing the call to hang indefinitely (no error, no resolve).
+        // invalidateQueries() will cause all active hooks (including useProfile)
+        // to refetch with the new token, which updates the profile automatically.
         console.log('[Auth] SIGNED_IN: calling invalidateQueries')
         await queryClient.invalidateQueries()
       }
