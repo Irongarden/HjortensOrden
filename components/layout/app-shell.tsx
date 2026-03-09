@@ -12,15 +12,15 @@ import type { Profile } from '@/lib/types'
 export function AppShell({ children, initialProfile }: { children: React.ReactNode; initialProfile?: Profile | null }) {
   const { sidebarOpen } = useUIStore()
 
-  // Bootstrap auth store synchronously from server-provided profile data.
-  // useLayoutEffect runs before the browser paints AND before useEffect
-  // (where AuthProvider fires its session fetch), so components always see a
-  // valid profile from the very first paint.
-  // isBootstrapped is always set to true here — even when initialProfile is
-  // null — so that queries are never permanently blocked.
+  // Set the profile from the server-side fetch so Sidebar/Topbar render
+  // immediately with the correct user name and avatar.
+  // We do NOT set isBootstrapped here — that is exclusively controlled by
+  // AuthProvider after it has confirmed the token is valid via an auth event.
+  // Setting isBootstrapped too early (before onAuthStateChange settles) causes
+  // queries to fire with a mid-refresh token, getting empty RLS responses.
   useLayoutEffect(() => {
     console.log('[AppShell] bootstrap — initialProfile:', initialProfile ? initialProfile.id : 'null')
-    useAuthStore.setState({ profile: initialProfile ?? null, isBootstrapped: true })
+    useAuthStore.setState({ profile: initialProfile ?? null })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

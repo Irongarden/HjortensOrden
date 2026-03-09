@@ -16,6 +16,10 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+          // Must set on both request AND response per @supabase/ssr docs.
+          // Setting only on request means the refreshed token never reaches
+          // the browser, causing the browser client to re-refresh on every
+          // page load (firing SIGNED_IN instead of INITIAL_SESSION).
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )

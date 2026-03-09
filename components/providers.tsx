@@ -79,32 +79,39 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        // SIGNED_IN or TOKEN_REFRESHED - the JWT was just refreshed.
+        // SIGNED_IN / TOKEN_REFRESHED — the JWT was just refreshed.
         //
-        // We use invalidateQueries() (not refetchQueries) because:
-        //   - invalidateQueries marks ALL queries stale AND immediately refetches
-        //     ones with active observers
-        //   - If dashboard components haven't mounted yet (ClientShell still
-        //     rendering), they're marked stale so they refetch the moment they mount
-        //   - refetchQueries({ type: 'active' }) would silently no-op if no active
-        //     observers exist yet
+        // isBootstrapped is NOT yet true (AppShell no longer sets it).
+        // Queries are therefore still disabled — they won't fire with a
+        // stale/empty token.
         //
-        // We use setTimeout(200) not 0 to give React time to flush the
-        // ClientShell setMounted(true) re-render and mount AppShell + dashboard
-        // before we trigger invalidation.
-        console.log('[Auth] SIGNED_IN: scheduling invalidateQueries in 200ms — mounted=', mounted)
+        // Strategy:
+        //  1. Mark that we have an auth event (stops the 3s fallback).
+        //  2. Poll getSession() until it returns a confirmed valid session.
+        //     This ensures the new token is fully committed to cookie storage
+        //     before we allow queries to run.
+        //  3. Set isBootstrapped: true — queries become enabled.
+        //  4. invalidateQueries() — triggers immediate fetch with valid token.
         bootstrappedByEvent = true
-        await new Promise<void>((r) => setTimeout(r, 200))
-        console.log('[Auth] SIGNED_IN: after wait — mounted=', mounted, 'isBootstrapped=', useAuthStore.getState().isBootstrapped, 'profile=', useAuthStore.getState().profile?.id ?? 'null')
-        if (!mounted) return
-        if (!useAuthStore.getState().isBootstrapped) {
-          useAuthStore.setState({ isBootstrapped: true })
+        console.log('[Auth] SIGNED_IN: waiting for session to be confirmed...')
+        let confirmedSession = session
+        for (let i = 0; i < 20; i++) {
+          await new Promise<void>((r) => setTimeout(r, 100))
+          if (!mounted) return
+          const { data: { session: s } } = await supabase.auth.getSession()
+          if (s?.user?.id) { confirmedSession = s; break }
         }
-        // Do NOT call supabase.from() here — the token-refresh lock may still
-        // be held, causing the call to hang indefinitely (no error, no resolve).
-        // invalidateQueries() will cause all active hooks (including useProfile)
-        // to refetch with the new token, which updates the profile automatically.
-        console.log('[Auth] SIGNED_IN: calling invalidateQueries')
+        console.log('[Auth] SIGNED_IN: session confirmed after polling —', confirmedSession?.user?.id ?? 'null')
+        if (!mounted) return
+        if (confirmedSession?.user) {
+          // Update profile with the confirmed session's user data
+          const { data } = await supabase
+            .from('profiles').select('*').eq('id', confirmedSession.user.id).single()
+          if (mounted && data) setProfile(data as Profile)
+        }
+        if (!mounted) return
+        useAuthStore.setState({ isBootstrapped: true })
+        console.log('[Auth] SIGNED_IN: isBootstrapped set, calling invalidateQueries')
         await queryClient.invalidateQueries()
       }
     )
