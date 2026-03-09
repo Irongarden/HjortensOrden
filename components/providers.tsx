@@ -79,36 +79,22 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        // SIGNED_IN / TOKEN_REFRESHED — the JWT was just refreshed.
+        // SIGNED_IN / TOKEN_REFRESHED — token refresh is complete.
+        // The `session` parameter IS the confirmed new session.
         //
-        // isBootstrapped is NOT yet true (AppShell no longer sets it).
-        // Queries are therefore still disabled — they won't fire with a
-        // stale/empty token.
+        // CRITICAL: do NOT call supabase.auth.getSession() or supabase.from()
+        // here. @supabase/ssr holds an internal lock during the entire
+        // onAuthStateChange callback. Any re-entrant supabase call will
+        // deadlock (no error, no timeout, promise never resolves).
         //
         // Strategy:
-        //  1. Mark that we have an auth event (stops the 3s fallback).
-        //  2. Poll getSession() until it returns a confirmed valid session.
-        //     This ensures the new token is fully committed to cookie storage
-        //     before we allow queries to run.
-        //  3. Set isBootstrapped: true — queries become enabled.
-        //  4. invalidateQueries() — triggers immediate fetch with valid token.
+        //  1. Set bootstrappedByEvent to suppress the 3s fallback.
+        //  2. Yield with setTimeout(0) — the callback returns, lock releases.
+        //  3. Set isBootstrapped:true — queries become enabled.
+        //  4. invalidateQueries() — React Query refetches with the new token.
         bootstrappedByEvent = true
-        console.log('[Auth] SIGNED_IN: waiting for session to be confirmed...')
-        let confirmedSession = session
-        for (let i = 0; i < 20; i++) {
-          await new Promise<void>((r) => setTimeout(r, 100))
-          if (!mounted) return
-          const { data: { session: s } } = await supabase.auth.getSession()
-          if (s?.user?.id) { confirmedSession = s; break }
-        }
-        console.log('[Auth] SIGNED_IN: session confirmed after polling —', confirmedSession?.user?.id ?? 'null')
-        if (!mounted) return
-        if (confirmedSession?.user) {
-          // Update profile with the confirmed session's user data
-          const { data } = await supabase
-            .from('profiles').select('*').eq('id', confirmedSession.user.id).single()
-          if (mounted && data) setProfile(data as Profile)
-        }
+        console.log('[Auth] SIGNED_IN: yielding so lock releases...')
+        await new Promise<void>((r) => setTimeout(r, 0))
         if (!mounted) return
         useAuthStore.setState({ isBootstrapped: true })
         console.log('[Auth] SIGNED_IN: isBootstrapped set, calling invalidateQueries')
