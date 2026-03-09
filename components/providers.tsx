@@ -70,7 +70,10 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
               console.error('[Auth] INITIAL_SESSION profile fetch threw:', e)
             }
           } else {
-            if (mounted) setProfile(null)
+            // Session is null — token is mid-refresh. Do NOT call setProfile(null) here:
+            // AppShell may have already set a valid profile from the server-side fetch.
+            // SIGNED_IN will fire shortly with the refreshed token and update everything.
+            console.log('[Auth] INITIAL_SESSION: null session — skipping setProfile, awaiting SIGNED_IN')
           }
           if (mounted) useAuthStore.setState({ isBootstrapped: true })
           return
@@ -78,23 +81,37 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // SIGNED_IN or TOKEN_REFRESHED - the JWT was just refreshed.
         //
-        // We do NOT await any supabase.from() call here: the session lock can
-        // still be held right after the refresh fires, causing an indefinite hang.
-        // Instead we yield to the event loop (setTimeout 0) which:
-        //   a) lets Supabase finish writing the new session to cookies/memory
-        //   b) lets React flush ClientShell setMounted + AppShell useLayoutEffect
-        //      so isBootstrapped is true and queries are already active before
-        //      we invalidate them.
-        console.log('[Auth] SIGNED_IN: yielding to event loop — mounted=', mounted)
+        // We use invalidateQueries() (not refetchQueries) because:
+        //   - invalidateQueries marks ALL queries stale AND immediately refetches
+        //     ones with active observers
+        //   - If dashboard components haven't mounted yet (ClientShell still
+        //     rendering), they're marked stale so they refetch the moment they mount
+        //   - refetchQueries({ type: 'active' }) would silently no-op if no active
+        //     observers exist yet
+        //
+        // We use setTimeout(200) not 0 to give React time to flush the
+        // ClientShell setMounted(true) re-render and mount AppShell + dashboard
+        // before we trigger invalidation.
+        console.log('[Auth] SIGNED_IN: scheduling invalidateQueries in 200ms — mounted=', mounted)
         bootstrappedByEvent = true
-        await new Promise<void>((r) => setTimeout(r, 0))
-        console.log('[Auth] SIGNED_IN: after yield — mounted=', mounted, 'isBootstrapped=', useAuthStore.getState().isBootstrapped)
+        await new Promise<void>((r) => setTimeout(r, 200))
+        console.log('[Auth] SIGNED_IN: after wait — mounted=', mounted, 'isBootstrapped=', useAuthStore.getState().isBootstrapped, 'profile=', useAuthStore.getState().profile?.id ?? 'null')
         if (!mounted) return
         if (!useAuthStore.getState().isBootstrapped) {
           useAuthStore.setState({ isBootstrapped: true })
         }
-        console.log('[Auth] SIGNED_IN: calling refetchQueries')
-        await queryClient.refetchQueries({ type: 'active' })
+        // Fetch fresh profile for auth store (token is now valid)
+        if (session?.user) {
+          try {
+            const { data } = await supabase
+              .from('profiles').select('*').eq('id', session.user.id).single()
+            if (mounted && data) setProfile(data as Profile)
+          } catch (e) {
+            console.error('[Auth] SIGNED_IN profile fetch threw:', e)
+          }
+        }
+        console.log('[Auth] SIGNED_IN: calling invalidateQueries')
+        await queryClient.invalidateQueries()
       }
     )
 
