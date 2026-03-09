@@ -14,6 +14,7 @@ import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAuthReady } from '@/lib/hooks/use-auth-ready'
 import { Button } from '@/components/ui/button'
 import toast from 'react-hot-toast'
+import { compressImage } from '@/lib/utils'
 import type { Database } from '@/lib/types/supabase'
 import type { GalleryAlbum, GalleryImage } from '@/lib/types'
 
@@ -76,9 +77,9 @@ function useUploadImages(albumId: string) {
 
       let firstUrl: string | null = null
       for (const file of files) {
-        const ext = file.name.split('.').pop()
-        const path = `${albumId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-        const { error: storageErr } = await supabase.storage.from('gallery').upload(path, file)
+        const compressed = await compressImage(file, { maxPx: 2000, quality: 0.85 })
+        const path = `${albumId}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+        const { error: storageErr } = await supabase.storage.from('gallery').upload(path, compressed)
         if (storageErr) throw storageErr
         const { data: { publicUrl } } = supabase.storage.from('gallery').getPublicUrl(path)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -128,7 +129,7 @@ export function AlbumView({ album, onClose }: AlbumViewProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { 'image/*': [] },
-    maxSize: 10_000_000,
+    maxSize: 50_000_000,
     disabled: uploadImages.isPending,
   })
 
@@ -191,7 +192,7 @@ export function AlbumView({ album, onClose }: AlbumViewProps) {
                     <p className="text-sm text-parchment/70">
                       {isDragActive ? 'Slip billederne her' : 'Træk billeder hertil, eller klik for at vælge'}
                     </p>
-                    <p className="text-xs text-muted mt-1">Maks. 10 MB pr. billede · Flere billeder tilladt</p>
+                    <p className="text-xs text-muted mt-1">Maks. 50 MB pr. billede · Komprimeres automatisk · Flere billeder tilladt</p>
                   </>
                 )}
               </div>

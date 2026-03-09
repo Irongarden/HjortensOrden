@@ -68,7 +68,7 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
     rejections.forEach(({ file, errors }) => {
       const isTooLarge = errors.some((e) => e.code === 'file-too-large')
       if (isTooLarge) {
-        toast.error(`"${file.name}" er for stor — maks. 10 MB`)
+        toast.error(`"${file.name}" er for stor — maks. 50 MB`)
       } else {
         toast.error(`"${file.name}" kunne ikke tilføjes — kun billedfiler er tilladt`)
       }
@@ -79,7 +79,7 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
     onDrop,
     onDropRejected,
     accept: { 'image/*': [] },
-    maxSize: 10_000_000,
+    maxSize: 50_000_000,
   })
 
   const onSubmit = async (data: FormData) => {

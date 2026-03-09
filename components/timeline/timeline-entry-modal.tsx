@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { compressImage } from '@/lib/utils'
 
 const supabase = createClient()
 import { ImagePlus, Link, Upload, X } from 'lucide-react'
@@ -78,11 +79,11 @@ export function TimelineEntryModal({ open, entry, onClose }: TimelineEntryModalP
 
       // Upload file to storage if provided
       if (imageTab === 'upload' && uploadFile) {
-        const ext = uploadFile.name.split('.').pop()
-        const path = `timeline/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const compressed = await compressImage(uploadFile, { maxPx: 2000, quality: 0.85 })
+        const path = `timeline/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
         const { error: uploadErr } = await supabase.storage
           .from('gallery')
-          .upload(path, uploadFile, { upsert: true })
+          .upload(path, compressed, { upsert: true })
         if (uploadErr) throw uploadErr
         const { data: { publicUrl } } = supabase.storage.from('gallery').getPublicUrl(path)
         finalImageUrl = publicUrl
@@ -236,7 +237,7 @@ export function TimelineEntryModal({ open, entry, onClose }: TimelineEntryModalP
                 >
                   <ImagePlus size={24} />
                   <span className="text-xs">Klik for at vælge billede</span>
-                  <span className="text-[10px] opacity-60">JPG, PNG, WEBP op til 10 MB</span>
+                  <span className="text-[10px] opacity-60">JPG, PNG, WEBP op til 50 MB · Komprimeres automatisk</span>
                 </button>
               )}
             </div>
