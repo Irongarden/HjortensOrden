@@ -255,26 +255,24 @@ export function AlbumView({ album, onClose }: AlbumViewProps) {
                     />
                   </button>
 
-                  {/* Delete overlay */}
+                  {/* Delete button — top-right corner, doesn't block image clicks */}
                   {canDelete && (
-                    <div className="absolute inset-0 bg-obsidian/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none group-hover:pointer-events-auto">
-                      <button
-                        disabled={isDeleting}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (confirm('Slet dette billede? Dette kan ikke fortrydes.')) {
-                            deleteImage.mutate({ imageId: img.id, storagePath: img.storage_path })
-                          }
-                        }}
-                        className="p-2.5 rounded-full bg-red-900/80 hover:bg-red-800 text-red-300 transition-colors shadow-lg"
-                        title="Slet billede"
-                      >
-                        {isDeleting
-                          ? <Loader2 size={14} className="animate-spin" />
-                          : <Trash2 size={14} />
+                    <button
+                      disabled={isDeleting}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm('Slet dette billede? Dette kan ikke fortrydes.')) {
+                          deleteImage.mutate({ imageId: img.id, storagePath: img.storage_path })
                         }
-                      </button>
-                    </div>
+                      }}
+                      className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-obsidian/80 hover:bg-red-900/90 text-muted hover:text-red-300 opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                      title="Slet billede"
+                    >
+                      {isDeleting
+                        ? <Loader2 size={13} className="animate-spin" />
+                        : <Trash2 size={13} />
+                      }
+                    </button>
                   )}
                 </motion.div>
               )
