@@ -6,6 +6,8 @@ import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Trash2, Upload, UploadCloud, Loader2 } from 'lucide-react'
 import Lightbox from 'yet-another-react-lightbox'
+import Download from 'yet-another-react-lightbox/plugins/download'
+import Zoom from 'yet-another-react-lightbox/plugins/zoom'
 import 'yet-another-react-lightbox/styles.css'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
@@ -133,7 +135,16 @@ export function AlbumView({ album, onClose }: AlbumViewProps) {
     disabled: uploadImages.isPending,
   })
 
-  const slides = images.map((img) => ({ src: img.url, alt: img.caption ?? '' }))
+  const slides = images.map((img) => ({
+    src: img.url,
+    alt: img.caption ?? '',
+    download: {
+      url: img.url,
+      filename: img.caption
+        ? `${img.caption.replace(/[^a-z0-9æøå]/gi, '_')}.jpg`
+        : `billede-${img.id}.jpg`,
+    },
+  }))
 
   return (
     <div className="fixed inset-0 z-50 bg-obsidian/95 backdrop-blur-sm flex flex-col">
@@ -278,6 +289,8 @@ export function AlbumView({ album, onClose }: AlbumViewProps) {
         close={() => setLightboxIndex(-1)}
         index={lightboxIndex}
         slides={slides}
+        plugins={[Download, Zoom]}
+        zoom={{ maxZoomPixelRatio: 3, scrollToZoom: true }}
         styles={{ container: { backgroundColor: 'rgba(15,17,21,0.97)' } }}
       />
     </div>
