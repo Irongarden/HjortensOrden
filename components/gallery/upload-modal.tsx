@@ -128,7 +128,8 @@ export function UploadModal({ open, onClose }: UploadModalProps) {
       setFiles([])
       onClose()
     } catch (e: unknown) {
-      toast.error((e as Error).message)
+      const msg = e instanceof Error ? e.message : 'Upload fejlede'
+      toast.error(msg)
     } finally {
       setUploading(false)
     }

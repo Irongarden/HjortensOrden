@@ -124,7 +124,8 @@ function EditMemberModal({ member, onClose }: { member: Profile; onClose: () => 
       })
       toast.success('Profilbillede opdateret')
     } catch (e) {
-      toast.error((e as Error).message || 'Kunne ikke uploade billede')
+      const msg = e instanceof Error ? e.message : 'Kunne ikke uploade billede'
+      toast.error(msg)
     } finally {
       setAvatarUploading(false)
     }
@@ -153,7 +154,7 @@ function EditMemberModal({ member, onClose }: { member: Profile; onClose: () => 
       toast.success('Bruger opdateret')
       onClose()
     } catch (e: unknown) {
-      toast.error((e as Error).message)
+      toast.error(e instanceof Error ? e.message : 'Fejl')
     } finally {
       setLoading(false)
     }

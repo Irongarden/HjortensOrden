@@ -1359,7 +1359,7 @@ function EvaluationModule({ proposal, isOwner }: { proposal: ArrangementProposal
       qc.invalidateQueries({ queryKey: ['evaluation', proposal.id] })
       toast.success('Evaluering gemt')
     } catch (e: unknown) {
-      toast.error((e as Error).message)
+      toast.error(e instanceof Error ? e.message : 'Fejl')
     } finally {
       setSaving(false)
     }
@@ -1703,7 +1703,7 @@ function TimelineEditor({ initialItems, proposalId, onApplied }: {
       qc.invalidateQueries({ queryKey: ['program_slots', proposalId] })
       toast.success(`${items.length} programpunkter tilføjet`)
       onApplied()
-    } catch (e: unknown) { toast.error((e as Error).message) }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Fejl') }
     finally { setApplying(false) }
   }
 
@@ -1790,7 +1790,7 @@ function BudgetEditorAI({ initialData, proposalId, proposal, onApplied }: {
       qc.invalidateQueries({ queryKey: ['budget_planned', proposalId] })
       toast.success(`${allLines.length} budgetlinjer tilføjet`)
       onApplied()
-    } catch (e: unknown) { toast.error((e as Error).message) }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Fejl') }
     finally { setApplying(false) }
   }
 
@@ -1880,7 +1880,7 @@ function ActivitiesEditorAI({ initialItems, proposalId, onApplied }: {
       qc.invalidateQueries({ queryKey: ['tasks', proposalId] })
       toast.success(`${items.length} opgaver oprettet`)
       onApplied()
-    } catch (e: unknown) { toast.error((e as Error).message) }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Fejl') }
     finally { setApplying(false) }
   }
 
@@ -1975,7 +1975,7 @@ function AIHelperPanel({ proposal }: { proposal: ArrangementProposal }) {
       setResult({ actionType, data: json.suggestions })
       qc.invalidateQueries({ queryKey: ['ai_suggestions', proposal.id] })
     } catch (e: unknown) {
-      toast.error((e as Error).message)
+      toast.error(e instanceof Error ? e.message : 'Fejl')
     } finally {
       setLoading(null)
     }
@@ -2227,7 +2227,7 @@ export function WorkshopEditor({ proposal: initialProposal, onClose }: { proposa
       qc.invalidateQueries({ queryKey: ['arrangement_proposals', currentProposal.id] })
       toast.success('Oprettet i kalender!')
     } catch (e: unknown) {
-      toast.error((e as Error).message ?? 'Fejl ved oprettelse')
+      toast.error(e instanceof Error ? e.message : 'Fejl ved oprettelse')
     } finally {
       setLinkingCalendar(false)
     }
@@ -2278,7 +2278,7 @@ export function WorkshopEditor({ proposal: initialProposal, onClose }: { proposa
       qc.invalidateQueries({ queryKey: ['events'] })
       toast.success('Tilmelding gemt')
     } catch (e: unknown) {
-      toast.error((e as Error).message)
+      toast.error(e instanceof Error ? e.message : 'Fejl')
     } finally {
       setRsvpingEvent(false)
     }

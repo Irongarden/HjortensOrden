@@ -146,6 +146,12 @@ export async function compressImage(
   file: File,
   { maxPx = 2000, quality = 0.85 }: { maxPx?: number; quality?: number } = {},
 ): Promise<File> {
+  // Browsers cannot decode HEIC/HEIF (iPhone default format) via Canvas.
+  // Return as-is and let the server or Supabase handle the rejection with
+  // a proper error message rather than hanging silently.
+  const isHeic = /\.hei[cf]$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif'
+  if (isHeic) throw new Error('HEIC/HEIF-billeder understøttes ikke. Gem billedet som JPEG eller PNG og prøv igen.')
+
   return new Promise((resolve, reject) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
@@ -169,14 +175,17 @@ export async function compressImage(
       canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
       canvas.toBlob(
         (blob) => {
-          if (!blob) { reject(new Error('Komprimering fejlede')); return }
+          if (!blob) { reject(new Error('Komprimering fejlede — prøv et andet billedformat')); return }
           resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
         },
         'image/jpeg',
         quality,
       )
     }
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Kunne ikke indlæse billede')) }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error(`Kunne ikke indlæse billedet — filformatet er muligvis ikke understøttet`))
+    }
     img.src = url
   })
 }

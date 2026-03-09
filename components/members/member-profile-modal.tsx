@@ -68,7 +68,8 @@ export function MemberProfileModal({ member, onClose }: MemberProfileModalProps)
       qc.invalidateQueries({ queryKey: ['members'] })
       toast.success('Profilbillede opdateret')
     } catch (err: unknown) {
-      toast.error((err as Error).message ?? 'Upload fejlede')
+      const msg = err instanceof Error ? err.message : 'Upload fejlede'
+      toast.error(msg)
       setAvatarPreview(null)
     } finally {
       setAvatarUploading(false)
