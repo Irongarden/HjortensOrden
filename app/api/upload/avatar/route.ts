@@ -4,6 +4,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/lib/types/supabase'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: NextRequest) {
   // Verify caller is authenticated
   const cookieStore = cookies()

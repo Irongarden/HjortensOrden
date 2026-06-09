@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 const adminSupabase = createAdminClient()
 // Some workshop/proposal tables are not yet present in generated DB types.
 // Keep casts local to this route until types are regenerated.

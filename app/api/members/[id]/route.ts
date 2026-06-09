@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getCallerContext, hasMinRole } from '@/app/api/_lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 const admin = createAdminClient()
 
 // PATCH /api/members/[id] — update allowed member fields (e.g. auto_pay)

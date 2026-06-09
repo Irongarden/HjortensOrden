@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getCallerContext, hasMinRole } from '@/app/api/_lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 const admin = createAdminClient()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const adminDb = admin as any

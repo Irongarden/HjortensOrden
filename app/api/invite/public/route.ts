@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/invite/public
 // Body: { token, full_name, email, password }
 export async function POST(req: NextRequest) {

@@ -4,6 +4,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import nodemailer from 'nodemailer'
 
+export const dynamic = 'force-dynamic'
+
 // Service-role client bypasses RLS — only used server-side
 const adminSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

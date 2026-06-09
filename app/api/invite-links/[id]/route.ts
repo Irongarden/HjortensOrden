@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getCallerContext, hasMinRole } from '@/app/api/_lib/auth'
 
-const admin = createAdminClient()
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const adminDb = admin as any
+export const dynamic = 'force-dynamic'
 
 // PATCH /api/invite-links/[id] — toggle active
 // DELETE /api/invite-links/[id] — remove link
@@ -20,6 +18,10 @@ export async function PATCH(
   if (typeof body.active !== 'boolean') {
     return NextResponse.json({ error: 'Kun feltet "active" kan opdateres' }, { status: 400 })
   }
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminDb = admin as any
+
   const { data, error } = await adminDb
     .from('public_invite_links')
     .update({ active: body.active })
@@ -37,6 +39,10 @@ export async function DELETE(
   const caller = await getCallerContext()
   if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!hasMinRole(caller.role, 'vice_chairman')) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
+
+  const admin = createAdminClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminDb = admin as any
 
   const { error } = await adminDb
     .from('public_invite_links')

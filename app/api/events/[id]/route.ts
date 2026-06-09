@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getCallerContext, hasMinRole } from '@/app/api/_lib/auth'
 import { sendEventNotification } from '../_lib/notify'
 
+export const dynamic = 'force-dynamic'
+
 const adminSupabase = createAdminClient()
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

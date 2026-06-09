@@ -7,6 +7,8 @@ import {
   NOTIFY_RATE_LIMIT_DAYS,
 } from '../../_lib/notify'
 
+export const dynamic = 'force-dynamic'
+
 const adminClient = createAdminClient()
 
 // ── GET /api/events/[id]/notify ─────────────────────────────────────────────

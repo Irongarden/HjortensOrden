@@ -31,19 +31,17 @@ export function createClient(): SupabaseClient<Database> {
 }
 
 export function createAdminClient(): SupabaseClient<Database> {
-  const cookieStore = cookies()
-
+  // The admin client uses the service-role key, bypasses RLS, and does not
+  // depend on the request session. It must NOT read `cookies()`, otherwise it
+  // breaks when instantiated at module scope (e.g. during `next build` page
+  // data collection, which runs outside a request scope).
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
       cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
-          )
-        },
+        getAll() { return [] },
+        setAll() { /* no-op: admin client is stateless */ },
       },
     }
   ) as unknown as SupabaseClient<Database>
