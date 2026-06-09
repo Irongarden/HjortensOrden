@@ -159,7 +159,7 @@ export function TimelineContent() {
                 <h3 className="font-serif text-parchment font-semibold mb-1">Slet kapitel</h3>
                 <p className="text-sm text-muted leading-relaxed">
                   Er du sikker på, at du vil slette{' '}
-                  <span className="text-parchment font-medium">"{deleteConfirm.title}"</span>?
+                  <span className="text-parchment font-medium">&quot;{deleteConfirm.title}&quot;</span>?
                   Handlingen kan ikke fortrydes.
                 </p>
               </div>

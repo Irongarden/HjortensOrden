@@ -1,28 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getCallerContext, hasMinRole } from '@/app/api/_lib/auth'
 
-const ALLOWED_ROLES = ['admin', 'chairman', 'vice_chairman']
-const TREASURER_ROLES = ['admin', 'chairman', 'vice_chairman', 'treasurer']
-
-async function getAuthorisedUser() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  return { user, role: profile?.role ?? '' }
-}
+const admin = createAdminClient()
 
 // PATCH /api/members/[id] — update allowed member fields (e.g. auto_pay)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const ctx = await getAuthorisedUser()
-  if (!ctx?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!TREASURER_ROLES.includes(ctx.role)) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
+  const caller = await getCallerContext()
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasMinRole(caller.role, 'treasurer')) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
 
   const body = await req.json()
-  const admin = createAdminClient()
 
   // Only allow specific safe fields via this endpoint
   const allowed: Record<string, unknown> = {}
@@ -32,8 +23,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Ingen gyldige felter at opdatere' }, { status: 400 })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any).from('profiles').update(allowed).eq('id', params.id)
+  const { error } = await admin.from('profiles').update(allowed).eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ success: true })
@@ -44,34 +34,36 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const ctx = await getAuthorisedUser()
-  if (!ctx?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!ALLOWED_ROLES.includes(ctx.role)) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
+  const caller = await getCallerContext()
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasMinRole(caller.role, 'vice_chairman')) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
 
   const targetId = params.id
 
   // Cannot delete yourself
-  if (targetId === ctx.user.id) {
+  if (targetId === caller.userId) {
     return NextResponse.json({ error: 'Du kan ikke slette dig selv' }, { status: 400 })
   }
 
-  const admin = createAdminClient()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: targetProfile } = await (admin as any)
+  const { data: targetProfile, error: targetProfileError } = await admin
     .from('profiles')
     .select('role')
     .eq('id', targetId)
-    .single()
+    .maybeSingle()
+  if (targetProfileError) {
+    return NextResponse.json({ error: targetProfileError.message }, { status: 500 })
+  }
+  if (!targetProfile) {
+    return NextResponse.json({ error: 'Medlem ikke fundet' }, { status: 404 })
+  }
 
   // Prevent deleting other admins unless you are admin yourself
-  if (targetProfile?.role === 'admin' && ctx.role !== 'admin') {
+  if (targetProfile.role === 'admin' && caller.role !== 'admin') {
     return NextResponse.json({ error: 'Kun administratorer kan slette andre administratorer' }, { status: 403 })
   }
 
   // Delete profile row (FK cascades should handle related data)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: profileError } = await (admin as any)
+  const { error: profileError } = await admin
     .from('profiles')
     .delete()
     .eq('id', targetId)

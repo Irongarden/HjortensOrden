@@ -536,7 +536,7 @@ export function InspirationContent() {
               </div>
               <h2 className="font-serif text-heading-lg text-parchment mb-3">Lad AI inspirere broderskabet</h2>
               <p className="text-muted text-sm max-w-lg mx-auto leading-relaxed">
-                Tilpas nøgleord og vælg tidligere arrangementer som kontekst — eller klik bare på "Generer forslag" for 5 skræddersyede begivenhedsidéer. Klik derefter "Udvikl dette" for at arbejde videre i Arrangement Værkstedet.
+                Tilpas nøgleord og vælg tidligere arrangementer som kontekst — eller klik bare på &quot;Generer forslag&quot; for 5 skræddersyede begivenhedsidéer. Klik derefter &quot;Udvikl dette&quot; for at arbejde videre i Arrangement Værkstedet.
               </p>
             </div>
           )}
@@ -645,7 +645,7 @@ export function InspirationContent() {
             <div className="text-center py-20 text-muted">
               <Hammer size={40} className="mx-auto mb-4 opacity-20" />
               <p className="font-serif text-parchment/50 text-heading-sm">Værkstedet er tomt</p>
-              <p className="text-sm mt-2">Generer AI forslag og klik "Udvikl dette", eller opret et nyt forslag.</p>
+              <p className="text-sm mt-2">Generer AI forslag og klik &quot;Udvikl dette&quot;, eller opret et nyt forslag.</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">

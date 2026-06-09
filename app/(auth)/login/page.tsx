@@ -26,12 +26,16 @@ function LoginPageContent() {
   const supabase = createClient()
   const [showPassword, setShowPassword] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
-  const [mode, setMode] = useState<'password' | 'otp'>('password')
-  const [otpStep, setOtpStep] = useState<'send' | 'verify'>('send')
+  const [mode, setMode] = useState<'password' | 'otp' | 'reset'>('password')
+  const [otpStep, setOtpStep] = useState<'send' | 'verify' | 'reset-password'>('send')
   const [otpEmail, setOtpEmail] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [otpLoading, setOtpLoading] = useState(false)
   const [otpError, setOtpError] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const sendOtp = async () => {
     if (!otpEmail || !/^[^@]+@[^@]+\.[^@]+$/.test(otpEmail)) {
@@ -57,9 +61,63 @@ function LoginPageContent() {
     const { error } = await supabase.auth.verifyOtp({ email: otpEmail, token: otpCode, type: 'email' })
     setOtpLoading(false)
     if (error) { setOtpError('Forkert eller udløbet kode — prøv igen'); return }
+    
+    // If in reset mode, go to password reset step
+    if (mode === 'reset') {
+      setOtpStep('reset-password')
+      return
+    }
+    
+    // Otherwise, login
     toast.success('Velkommen tilbage')
     router.push(redirectTo)
     router.refresh()
+  }
+
+  const sendResetOtp = async () => {
+    if (!otpEmail || !/^[^@]+@[^@]+\.[^@]+$/.test(otpEmail)) {
+      setOtpError('Indtast en gyldig e-mailadresse')
+      return
+    }
+    setOtpLoading(true)
+    setOtpError(null)
+    const { error } = await supabase.auth.signInWithOtp({
+      email: otpEmail,
+      options: { shouldCreateUser: false },
+    })
+    setOtpLoading(false)
+    if (error) { setOtpError('Kunne ikke sende kode. Er e-mailen registreret?'); return }
+    setOtpStep('verify')
+    toast.success('Kode sendt til ' + otpEmail)
+  }
+
+  const updatePassword = async () => {
+    if (newPassword.length < 6) {
+      setOtpError('Adgangskode skal være mindst 6 tegn')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setOtpError('Adgangskoderne matcher ikke')
+      return
+    }
+    setOtpLoading(true)
+    setOtpError(null)
+    
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setOtpLoading(false)
+    
+    if (error) {
+      setOtpError('Kunne ikke opdatere adgangskode: ' + error.message)
+      return
+    }
+    
+    toast.success('Adgangskode opdateret')
+    setMode('password')
+    setOtpStep('send')
+    setOtpEmail('')
+    setOtpCode('')
+    setNewPassword('')
+    setConfirmPassword('')
   }
 
   const errorParam = searchParams.get('error')
@@ -200,8 +258,141 @@ function LoginPageContent() {
                 <Button type="submit" variant="gold" size="lg" loading={isSubmitting} className="w-full mt-6">
                   Log ind
                 </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('reset')
+                    setOtpStep('send')
+                    setOtpEmail('')
+                    setOtpCode('')
+                    setOtpError(null)
+                    setAuthError(null)
+                  }}
+                  className="w-full text-center text-xs text-muted hover:text-parchment transition-colors mt-3"
+                >
+                  Glemt adgangskode?
+                </button>
               </form>
             </>
+          )}
+
+          {/* ── Password reset ── */}
+          {mode === 'reset' && (
+            <div className="space-y-4">
+              {otpError && (
+                <div className="flex items-start gap-3 p-4 bg-red-900/20 border border-red-800/40
+                                rounded-lg text-red-300 text-sm">
+                  <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                  <p>{otpError}</p>
+                </div>
+              )}
+
+              {otpStep === 'send' ? (
+                <>
+                  <p className="text-xs text-muted -mt-1">Vi sender en 6-cifret kode til din e-mail.</p>
+                  <Input
+                    label="E-mailadresse"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="dit@navn.dk"
+                    leftIcon={<Mail size={16} />}
+                    value={otpEmail}
+                    onChange={(e) => setOtpEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && sendResetOtp()}
+                  />
+                  <Button variant="gold" size="lg" loading={otpLoading} className="w-full" onClick={sendResetOtp}>
+                    Send kode
+                  </Button>
+                  <button
+                    onClick={() => { setMode('password'); setOtpError(null) }}
+                    className="flex items-center gap-1.5 text-xs text-muted hover:text-parchment transition-colors mx-auto"
+                  >
+                    <ArrowLeft size={12} /> Tilbage til login
+                  </button>
+                </>
+              ) : otpStep === 'verify' ? (
+                <>
+                  <div className="flex items-center gap-2 p-3 bg-surface rounded-xl border border-border">
+                    <CheckCircle size={15} className="text-green-400 flex-shrink-0" />
+                    <p className="text-sm text-parchment/80">
+                      Kode sendt til <span className="text-parchment font-medium">{otpEmail}</span>
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-label-sm text-muted mb-1.5">6-cifret kode</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      autoComplete="one-time-code"
+                      placeholder="000000"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                      onKeyDown={(e) => e.key === 'Enter' && verifyOtp()}
+                      className="input-base w-full text-center text-2xl tracking-[0.5em] font-mono"
+                    />
+                  </div>
+                  <Button variant="gold" size="lg" loading={otpLoading} className="w-full" onClick={verifyOtp}>
+                    Verificer kode
+                  </Button>
+                  <button
+                    onClick={() => { setOtpStep('send'); setOtpCode(''); setOtpError(null) }}
+                    className="flex items-center gap-1.5 text-xs text-muted hover:text-parchment transition-colors mx-auto"
+                  >
+                    <ArrowLeft size={12} /> Skift e-mail eller send igen
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted -mt-1">Indtast din nye adgangskode.</p>
+                  <Input
+                    label="Ny adgangskode"
+                    type={showNewPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    leftIcon={<Lock size={16} />}
+                    rightIcon={
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="text-muted hover:text-parchment transition-colors"
+                      >
+                        {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    }
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <Input
+                    label="Bekræft adgangskode"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    leftIcon={<Lock size={16} />}
+                    rightIcon={
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="text-muted hover:text-parchment transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    }
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && updatePassword()}
+                  />
+                  <Button variant="gold" size="lg" loading={otpLoading} className="w-full" onClick={updatePassword}>
+                    Opdater adgangskode
+                  </Button>
+                  <button
+                    onClick={() => { setMode('password'); setOtpStep('send'); setOtpError(null); setNewPassword(''); setConfirmPassword('') }}
+                    className="flex items-center gap-1.5 text-xs text-muted hover:text-parchment transition-colors mx-auto"
+                  >
+                    <ArrowLeft size={12} /> Tilbage til login
+                  </button>
+                </>
+              )}
+            </div>
           )}
 
           {/* ── OTP login ── */}

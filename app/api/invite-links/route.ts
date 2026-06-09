@@ -1,26 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { createClient } from '@/lib/supabase/server'
+import { getCallerContext, hasMinRole } from '@/app/api/_lib/auth'
 
-const INVITE_ROLES = ['admin', 'chairman', 'vice_chairman']
-
-async function getAuthorisedUser() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  return { user, role: profile?.role ?? '' }
-}
+const admin = createAdminClient()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminDb = admin as any
 
 // GET /api/invite-links — list all links (admin only)
 export async function GET() {
-  const ctx = await getAuthorisedUser()
-  if (!ctx?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!INVITE_ROLES.includes(ctx.role)) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
+  const caller = await getCallerContext()
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasMinRole(caller.role, 'vice_chairman')) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
 
-  const admin = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const { data, error } = await adminDb
     .from('public_invite_links')
     .select('*, creator:profiles!created_by(id, full_name)')
     .order('created_at', { ascending: false })
@@ -30,16 +22,21 @@ export async function GET() {
 
 // POST /api/invite-links — create a new link
 export async function POST(req: NextRequest) {
-  const ctx = await getAuthorisedUser()
-  if (!ctx?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!INVITE_ROLES.includes(ctx.role)) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
+  const caller = await getCallerContext()
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasMinRole(caller.role, 'vice_chairman')) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
 
   const { label, expires_at, max_uses } = await req.json()
-  const admin = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  const payload: { label: string | null; expires_at?: string | null; max_uses?: number | null; created_by: string } = {
+    label: typeof label === 'string' && label.trim().length > 0 ? label.trim() : null,
+    created_by: caller.userId,
+  }
+  if (typeof expires_at === 'string' || expires_at === null) payload.expires_at = expires_at
+  if (typeof max_uses === 'number' || max_uses === null) payload.max_uses = max_uses
+
+  const { data, error } = await adminDb
     .from('public_invite_links')
-    .insert({ label: label || null, expires_at, max_uses: max_uses || null, created_by: ctx.user.id })
+    .insert(payload)
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

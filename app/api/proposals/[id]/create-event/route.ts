@@ -1,21 +1,19 @@
-import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
-const adminSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
+const adminSupabase = createAdminClient()
+// Some workshop/proposal tables are not yet present in generated DB types.
+// Keep casts local to this route until types are regenerated.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminDb = adminSupabase as any
 
 async function getUser() {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-  )
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createClient()
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
+  if (error) throw error
   return user
 }
 
@@ -31,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!user) return NextResponse.json({ error: 'Ikke autentificeret' }, { status: 401 })
 
   // Verify the caller owns or collaborates on this proposal
-  const { data: proposal, error: propErr } = await adminSupabase
+  const { data: proposal, error: propErr } = await adminDb
     .from('arrangement_proposals')
     .select('id, title, description, location, proposed_date_from, proposed_date_to, estimated_budget, created_by, collaborator_ids, linked_event_id')
     .eq('id', params.id)
@@ -60,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     : `${proposal.proposed_date_from}T20:00:00`
 
   // Create the event (admin bypasses RLS)
-  const { data: evt, error: evtErr } = await adminSupabase
+  const { data: evt, error: evtErr } = await adminDb
     .from('events')
     .insert({
       title:           proposal.title,
@@ -78,13 +76,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (evtErr) return NextResponse.json({ error: evtErr.message }, { status: 400 })
 
   // Link event back to the proposal
-  await adminSupabase
+  const { error: linkError } = await adminDb
     .from('arrangement_proposals')
     .update({ linked_event_id: evt.id })
     .eq('id', params.id)
+  if (linkError) {
+    return NextResponse.json({ error: linkError.message }, { status: 400 })
+  }
 
   // Auto-create a timeline entry so the event appears in the chronicle
-  await adminSupabase
+  const { error: timelineError } = await adminDb
     .from('timeline_entries' as 'timeline_entries')
     .insert({
       title:       proposal.title,
@@ -94,6 +95,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       event_id:    evt.id,
       created_by:  user.id,
     } as never)
+  if (timelineError) {
+    return NextResponse.json({ event_id: evt.id, warning: timelineError.message })
+  }
 
   return NextResponse.json({ event_id: evt.id })
 }

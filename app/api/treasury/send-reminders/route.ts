@@ -1,32 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdmin } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getCallerContext, hasMinRole } from '@/app/api/_lib/auth'
 import nodemailer from 'nodemailer'
 
 export const dynamic = 'force-dynamic'
 
-const ALLOWED_ROLES = ['admin', 'chairman', 'vice_chairman', 'treasurer']
+const admin = createAdminClient()
+// Some reminder/settings tables are not yet represented in generated DB types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminDb = admin as any
 
 // ── GET /api/treasury/send-reminders?month=YYYY-MM ──────────────────────────
 // Returns the reminder log for a given month so the UI can show
 // "Sidst påmindet" next to each member.
 export async function GET(req: NextRequest) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const caller = await getCallerContext()
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasMinRole(caller.role, 'treasurer')) {
+    return NextResponse.json({ error: 'Adgang nægtet — kun kasserer eller højere' }, { status: 403 })
+  }
 
   const month = new URL(req.url).searchParams.get('month')
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
     return NextResponse.json({ error: 'Mangler ?month=YYYY-MM' }, { status: 400 })
   }
 
-  const admin = createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-
   // Return the most recent sent_at per user_id for this month
-  const { data, error } = await admin
+  const { data, error } = await adminDb
     .from('payment_reminder_log')
     .select('user_id, sent_at')
     .eq('period_month', month)
@@ -150,13 +150,9 @@ function buildEmail(params: {
 }
 
 export async function POST(req: NextRequest) {
-  // Verify caller is authenticated + has treasurer+ role
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: caller } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!caller || !ALLOWED_ROLES.includes(caller.role as string)) {
+  const caller = await getCallerContext()
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasMinRole(caller.role, 'treasurer')) {
     return NextResponse.json({ error: 'Adgang nægtet — kun kasserer eller højere' }, { status: 403 })
   }
 
@@ -172,20 +168,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ugyldig måned — brug formatet YYYY-MM' }, { status: 400 })
   }
 
-  // Use service-role client to bypass RLS for reads
-  const admin = createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-
   // Fetch active members, paid members this month, fee setting, and kasserer info in parallel
   const [membersRes, paidRes, settingRes, kassererRes] = await Promise.all([
     admin.from('profiles').select('id, full_name, email').eq('status', 'active'),
     admin.from('payment_records').select('user_id').eq('period_month', month).eq('status', 'paid'),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (admin as any).from('treasury_settings').select('monthly_fee_dkk').maybeSingle(),
+    adminDb.from('treasury_settings').select('monthly_fee_dkk').maybeSingle(),
     admin.from('profiles').select('full_name, email').eq('role', 'treasurer').maybeSingle(),
   ])
+  if (membersRes.error) return NextResponse.json({ error: membersRes.error.message }, { status: 500 })
+  if (paidRes.error) return NextResponse.json({ error: paidRes.error.message }, { status: 500 })
+  if (settingRes.error) return NextResponse.json({ error: settingRes.error.message }, { status: 500 })
+  if (kassererRes.error) return NextResponse.json({ error: kassererRes.error.message }, { status: 500 })
 
   const members = membersRes.data ?? []
   const paidIds = new Set((paidRes.data ?? []).map((p: { user_id: string }) => p.user_id))
@@ -193,7 +187,7 @@ export async function POST(req: NextRequest) {
   const kasserer = kassererRes.data as { full_name: string; email: string } | null
 
   const kassererName = kasserer?.full_name ?? 'Ordenens kasserer'
-  const kassererEmail = kasserer?.email ?? (caller as { role: string } & { email?: string }).email ?? ''
+  const kassererEmail = kasserer?.email ?? ''
 
   const unpaid = members.filter((m: { id: string }) => !paidIds.has(m.id))
   const label = monthLabel(month)
@@ -227,13 +221,16 @@ export async function POST(req: NextRequest) {
     const sentMembers = (unpaid as { id: string; full_name: string; email: string }[])
       .filter((m) => !errors.some((e) => e.startsWith(m.full_name)))
     if (sentMembers.length > 0) {
-      await admin.from('payment_reminder_log').insert(
+      const { error: logError } = await adminDb.from('payment_reminder_log').insert(
         sentMembers.map((m) => ({
           period_month: month,
           user_id:      m.id,
-          sent_by:      user.id,
+          sent_by:      caller.userId,
         }))
       )
+      if (logError) {
+        errors.push(`Kunne ikke gemme reminder-log: ${logError.message}`)
+      }
     }
   }
 

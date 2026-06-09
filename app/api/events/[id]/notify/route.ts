@@ -1,31 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getCallerContext, hasMinRole } from '@/app/api/_lib/auth'
 import {
   sendEventNotification,
   getEventNotificationHistory,
   NOTIFY_RATE_LIMIT_DAYS,
 } from '../../_lib/notify'
 
-async function getCallerInfo() {
-  const cookieStore = cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-  )
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  return { userId: user.id, role: data?.role as string | undefined }
-}
-
-const ROLE_RANK: Record<string, number> = {
-  member: 1, librarian: 2, treasurer: 3, vice_chairman: 4, chairman: 5, admin: 6,
-}
-function hasMinRole(role: string | undefined, min: string) {
-  return (ROLE_RANK[role ?? ''] ?? 0) >= (ROLE_RANK[min] ?? 99)
-}
+const adminClient = createAdminClient()
 
 // ── GET /api/events/[id]/notify ─────────────────────────────────────────────
 // Returns notification history for the event.
@@ -33,7 +15,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const caller = await getCallerInfo()
+  const caller = await getCallerContext()
   if (!caller) return NextResponse.json({ error: 'Ikke autentificeret' }, { status: 401 })
 
   const history = await getEventNotificationHistory(params.id)
@@ -47,23 +29,21 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const caller = await getCallerInfo()
+  const caller = await getCallerContext()
   if (!caller) return NextResponse.json({ error: 'Ikke autentificeret' }, { status: 401 })
 
   // Must be at least vice_chairman OR the event creator
   // (creator check is also done in PATCH route — we re-check here)
   if (!hasMinRole(caller.role, 'vice_chairman')) {
     // Check if they're the event creator
-    const { createClient } = await import('@supabase/supabase-js')
-    const adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
-    const { data: ev } = await adminClient
+    const { data: ev, error: eventError } = await adminClient
       .from('events')
       .select('created_by')
       .eq('id', params.id)
-      .single()
+      .maybeSingle()
+    if (eventError) {
+      return NextResponse.json({ error: eventError.message }, { status: 400 })
+    }
     if (!ev || ev.created_by !== caller.userId) {
       return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
     }

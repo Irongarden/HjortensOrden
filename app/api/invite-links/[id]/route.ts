@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getCallerContext, hasMinRole } from '@/app/api/_lib/auth'
 
-const INVITE_ROLES = ['admin', 'chairman', 'vice_chairman']
-
-async function authorise() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (!profile || !INVITE_ROLES.includes(profile.role)) return null
-  return user
-}
+const admin = createAdminClient()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const adminDb = admin as any
 
 // PATCH /api/invite-links/[id] — toggle active
 // DELETE /api/invite-links/[id] — remove link
@@ -18,14 +12,17 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!await authorise()) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
+  const caller = await getCallerContext()
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasMinRole(caller.role, 'vice_chairman')) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
 
-  const admin = createAdminClient()
   const body = await req.json()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
+  if (typeof body.active !== 'boolean') {
+    return NextResponse.json({ error: 'Kun feltet "active" kan opdateres' }, { status: 400 })
+  }
+  const { data, error } = await adminDb
     .from('public_invite_links')
-    .update(body)
+    .update({ active: body.active })
     .eq('id', params.id)
     .select()
     .single()
@@ -37,11 +34,11 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  if (!await authorise()) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
+  const caller = await getCallerContext()
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasMinRole(caller.role, 'vice_chairman')) return NextResponse.json({ error: 'Adgang nægtet' }, { status: 403 })
 
-  const admin = createAdminClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin as any)
+  const { error } = await adminDb
     .from('public_invite_links')
     .delete()
     .eq('id', params.id)
