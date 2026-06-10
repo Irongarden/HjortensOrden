@@ -59,20 +59,28 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
           // Enable queries immediately — do not block on the profile fetch.
           if (mounted) useAuthStore.setState({ isBootstrapped: true })
           if (session?.user) {
-            // Skip the fetch if AppShell already provided the profile from the
-            // server-side render — avoids a redundant /profiles round-trip on
-            // every page load.
-            if (!useAuthStore.getState().profile) {
-              // CRITICAL: do NOT call supabase.from() synchronously inside this
-              // callback. @supabase/ssr holds an internal lock for the duration
-              // of the onAuthStateChange callback; a re-entrant supabase query
-              // here deadlocks the lock forever, which then blocks every other
-              // supabase.from() query on the page (the "Indlæser… i en evighed"
-              // hang). Defer the fetch so the callback returns and the lock
-              // releases first — same strategy as the SIGNED_IN branch below.
-              const userId = session.user.id
-              setTimeout(async () => {
-                if (!mounted || useAuthStore.getState().profile) return
+            // AppShell enables queries from the server-rendered profile BEFORE
+            // this event fires. Those early queries can race ahead of the
+            // browser supabase client finishing its session hydration and go
+            // out without the user's auth header -> RLS returns empty -> React
+            // Query caches an empty "success". INITIAL_SESSION is the first
+            // point where the client session is guaranteed ready, so we
+            // invalidate here to force any such queries to refetch WITH the
+            // token. React Query dedupes in-flight fetches, so in the happy
+            // path this is at most one cheap refetch. This is what fixes the
+            // production "must refresh several times before data appears" bug.
+            //
+            // CRITICAL: do NOT call supabase.from()/invalidateQueries
+            // synchronously inside this callback. @supabase/ssr holds an
+            // internal lock for the duration of the onAuthStateChange callback;
+            // a re-entrant supabase query deadlocks it forever (the
+            // "Indlæser… i en evighed" hang). Defer with setTimeout(0) so the
+            // callback returns and the lock releases first.
+            const userId = session.user.id
+            const needsProfile = !useAuthStore.getState().profile
+            setTimeout(async () => {
+              if (!mounted) return
+              if (needsProfile && !useAuthStore.getState().profile) {
                 try {
                   const { data, error: profileErr } = await supabase
                     .from('profiles')
@@ -85,8 +93,12 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
                 } catch (e) {
                   console.error('[Auth] INITIAL_SESSION profile fetch threw:', e)
                 }
-              }, 0)
-            }
+              }
+              if (mounted) {
+                console.log('[Auth] INITIAL_SESSION: invalidating queries with confirmed session')
+                queryClient.invalidateQueries()
+              }
+            }, 0)
           } else {
             // Session is null — token is mid-refresh. Do NOT call setProfile(null) here:
             // AppShell may have already set a valid profile from the server-side fetch.
