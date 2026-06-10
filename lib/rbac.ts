@@ -20,7 +20,7 @@ export const ROLE_LABELS: Record<MemberRole, string> = {
 }
 
 export const ROLE_COLORS: Record<MemberRole, string> = {
-  admin:         'text-red-400 bg-red-900/20 border-red-800/30',
+  admin:         'text-violet-300 bg-violet-900/20 border-violet-500/25',
   chairman:      'text-gold bg-gold/10 border-gold/20',
   vice_chairman: 'text-amber-400 bg-amber-900/20 border-amber-800/30',
   treasurer:     'text-emerald-400 bg-emerald-900/20 border-emerald-800/30',

@@ -56,18 +56,36 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (event === 'INITIAL_SESSION') {
           bootstrappedByEvent = true
+          // Enable queries immediately — do not block on the profile fetch.
+          if (mounted) useAuthStore.setState({ isBootstrapped: true })
           if (session?.user) {
-            try {
-              const { data, error: profileErr } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single()
-              if (profileErr) console.error('[Auth] profile fetch error (INITIAL_SESSION):', profileErr)
-              console.log('[Auth] profile (INITIAL_SESSION):', data ? (data as Profile).id : 'null')
-              if (mounted) setProfile(data as Profile)
-            } catch (e) {
-              console.error('[Auth] INITIAL_SESSION profile fetch threw:', e)
+            // Skip the fetch if AppShell already provided the profile from the
+            // server-side render — avoids a redundant /profiles round-trip on
+            // every page load.
+            if (!useAuthStore.getState().profile) {
+              // CRITICAL: do NOT call supabase.from() synchronously inside this
+              // callback. @supabase/ssr holds an internal lock for the duration
+              // of the onAuthStateChange callback; a re-entrant supabase query
+              // here deadlocks the lock forever, which then blocks every other
+              // supabase.from() query on the page (the "Indlæser… i en evighed"
+              // hang). Defer the fetch so the callback returns and the lock
+              // releases first — same strategy as the SIGNED_IN branch below.
+              const userId = session.user.id
+              setTimeout(async () => {
+                if (!mounted || useAuthStore.getState().profile) return
+                try {
+                  const { data, error: profileErr } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single()
+                  if (profileErr) console.error('[Auth] profile fetch error (INITIAL_SESSION):', profileErr)
+                  console.log('[Auth] profile (INITIAL_SESSION):', data ? (data as Profile).id : 'null')
+                  if (mounted && data) setProfile(data as Profile)
+                } catch (e) {
+                  console.error('[Auth] INITIAL_SESSION profile fetch threw:', e)
+                }
+              }, 0)
             }
           } else {
             // Session is null — token is mid-refresh. Do NOT call setProfile(null) here:
@@ -75,7 +93,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
             // SIGNED_IN will fire shortly with the refreshed token and update everything.
             console.log('[Auth] INITIAL_SESSION: null session — skipping setProfile, awaiting SIGNED_IN')
           }
-          if (mounted) useAuthStore.setState({ isBootstrapped: true })
           return
         }
 

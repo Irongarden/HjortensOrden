@@ -46,7 +46,7 @@ export function ProfileContent() {
   const [uploading, setUploading] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? null)
 
-  const { register, handleSubmit, formState: { errors, isDirty, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, reset, formState: { errors, isDirty, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       full_name: profile?.full_name ?? '',
@@ -55,6 +55,19 @@ export function ProfileContent() {
       bio: profile?.bio ?? '',
     },
   })
+
+  // Sync form once the profile hydrates from the auth store (defaultValues are
+  // only captured on mount, so the fields would otherwise render empty).
+  useEffect(() => {
+    if (!profile) return
+    reset({
+      full_name: profile.full_name ?? '',
+      phone: profile.phone ?? '',
+      city: profile.city ?? '',
+      bio: profile.bio ?? '',
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id])
 
   const handleAvatarChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

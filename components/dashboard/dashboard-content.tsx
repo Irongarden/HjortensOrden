@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
-  CalendarDays, TrendingUp, CheckSquare,
+  TrendingUp, CheckSquare,
   Award, Users, Vote,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/auth-store'
@@ -97,14 +97,13 @@ export function DashboardContent() {
       </motion.div>
 
       {/* Stats Grid — role-aware */}
-      <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {isTreasurer && (
           <StatCard
             label="Kassebeholdning"
             value={treasury ? formatDKK(treasury.balance) : '—'}
             subtext="Aktuel saldo"
             icon={<TrendingUp size={20} />}
-            trend={treasury && treasury.balance > 0 ? { value: 0, label: '' } : undefined}
             href="/treasury"
           />
         )}
@@ -117,13 +116,6 @@ export function DashboardContent() {
             href="/members"
           />
         )}
-        <StatCard
-          label="Kommende Begivenheder"
-          value={eventsLoading ? '…' : events?.length ?? 0}
-          subtext="Planlagte arrangementer"
-          icon={<CalendarDays size={20} />}
-          href="/events"
-        />
         <StatCard
           label={activePoll ? 'Aktiv Afstemning' : 'Afstemninger'}
           value={activePoll ? '1 aktiv' : '0 aktive'}
@@ -179,7 +171,7 @@ export function DashboardContent() {
         </div>
 
         {/* Right column — 1/3 */}
-        <div className="space-y-6">
+        <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           {/* Anniversaries */}
           {upcomingAnniversaries.length > 0 && (
             <motion.div variants={item}>
@@ -194,9 +186,14 @@ export function DashboardContent() {
                 <h3 className="font-serif text-heading-sm text-parchment">Seneste Fortjenester</h3>
                 <Award size={16} className="text-gold/60" />
               </div>
-              <p className="text-sm text-muted">
-                Badges tildeles automatisk ved jubilæer og særlige bedrifter.
-              </p>
+              <div className="flex flex-col items-center text-center py-6">
+                <div className="w-12 h-12 rounded-full bg-gold/5 border border-gold/15 flex items-center justify-center mb-3">
+                  <Award size={20} className="text-gold/50" />
+                </div>
+                <p className="text-sm text-muted max-w-[14rem]">
+                  Endnu ingen fortjenester. Badges tildeles automatisk ved jubilæer og særlige bedrifter.
+                </p>
+              </div>
             </div>
           </motion.div>
         </div>

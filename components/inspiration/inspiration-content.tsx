@@ -397,8 +397,8 @@ export function InspirationContent() {
   }
 
   const tabs = [
-    { key: 'inspiration' as Tab, label: '✦ AI Inspiration' },
-    { key: 'workshop' as Tab, label: `🔨 Arrangement Værksted${proposals.length > 0 ? ` (${proposals.length})` : ''}` },
+    { key: 'inspiration' as Tab, icon: Sparkles, label: 'AI Inspiration' },
+    { key: 'workshop' as Tab, icon: Hammer, label: `Arrangement Værksted${proposals.length > 0 ? ` (${proposals.length})` : ''}` },
   ]
 
   return (
@@ -409,7 +409,7 @@ export function InspirationContent() {
         <div className="flex items-end justify-between page-header-row">
           <div>
             <p className="text-label-sm text-muted uppercase tracking-widest mb-1">Ordenens</p>
-            <h1 className="font-serif text-display-sm text-parchment">Inspirations­motor</h1>
+            <h1 className="font-serif text-display-sm text-parchment">Planlægning</h1>
           </div>
           {activeTab === 'inspiration' && (
             <Button variant="gold" size="sm" onClick={() => generate.mutate()} loading={generate.isPending}>
@@ -432,10 +432,11 @@ export function InspirationContent() {
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 activeTab === t.key ? 'border-gold text-gold' : 'border-transparent text-muted hover:text-parchment'
               }`}
             >
+              <t.icon size={15} />
               {t.label}
             </button>
           ))}

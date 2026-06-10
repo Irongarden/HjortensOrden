@@ -26,6 +26,15 @@ const TYPE_COLORS: Record<TimelineEntryType, string> = {
   other:               'bg-surface text-parchment/80 border-border',
 }
 
+const TYPE_LABELS: Record<TimelineEntryType, string> = {
+  founding:            'Grundlæggelse',
+  milestone:           'Milepæl',
+  major_event:         'Begivenhed',
+  chairman_transition: 'Lederskifte',
+  anniversary:         'Jubilæum',
+  other:               'Andet',
+}
+
 interface TimelineEntryProps {
   entry: TEntry
   side: 'left' | 'right'
@@ -56,7 +65,7 @@ export function TimelineEntry({ entry, side, canEdit, canDelete, onEdit, onDelet
           <div className="flex items-center justify-between mb-3">
             <div className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border ${TYPE_COLORS[entry.type]}`}>
               {TYPE_ICONS[entry.type]}
-              <span className="capitalize">{entry.type.replace('_', ' ')}</span>
+              <span>{TYPE_LABELS[entry.type]}</span>
             </div>
             {canEdit && (
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

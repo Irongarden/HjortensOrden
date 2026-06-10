@@ -152,7 +152,7 @@
   /* Input base */
   .input-base {
     @apply w-full bg-obsidian border border-border rounded-lg px-4 py-2.5 text-sm
-           text-parchment placeholder:text-muted/60
+           text-parchment placeholder:text-muted/60 [color-scheme:dark]
            focus:outline-none focus:border-gold/40 focus:ring-1 focus:ring-gold/20
            transition-all duration-200;
   }

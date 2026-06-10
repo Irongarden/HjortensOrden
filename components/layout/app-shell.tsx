@@ -14,13 +14,21 @@ export function AppShell({ children, initialProfile }: { children: React.ReactNo
 
   // Set the profile from the server-side fetch so Sidebar/Topbar render
   // immediately with the correct user name and avatar.
-  // We do NOT set isBootstrapped here — that is exclusively controlled by
-  // AuthProvider after it has confirmed the token is valid via an auth event.
-  // Setting isBootstrapped too early (before onAuthStateChange settles) causes
-  // queries to fire with a mid-refresh token, getting empty RLS responses.
+  //
+  // When the server already provided a profile we ALSO mark the auth as
+  // bootstrapped right away: the server layout validated the JWT via
+  // getUser() and the middleware refreshed the cookie token, so the browser
+  // client holds a valid session synchronously. Enabling queries here (instead
+  // of waiting for the async onAuthStateChange round-trip) removes the ~1s
+  // "blank/hanging" gap before any data starts loading. AuthProvider still
+  // listens for TOKEN_REFRESHED/SIGNED_IN and re-validates afterwards.
   useLayoutEffect(() => {
     console.log('[AppShell] bootstrap — initialProfile:', initialProfile ? initialProfile.id : 'null')
-    useAuthStore.setState({ profile: initialProfile ?? null })
+    if (initialProfile) {
+      useAuthStore.setState({ profile: initialProfile, isBootstrapped: true })
+    } else {
+      useAuthStore.setState({ profile: null })
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
