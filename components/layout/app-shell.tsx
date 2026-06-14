@@ -15,17 +15,18 @@ export function AppShell({ children, initialProfile }: { children: React.ReactNo
   // Set the profile from the server-side fetch so Sidebar/Topbar render
   // immediately with the correct user name and avatar.
   //
-  // When the server already provided a profile we ALSO mark the auth as
-  // bootstrapped right away: the server layout validated the JWT via
-  // getUser() and the middleware refreshed the cookie token, so the browser
-  // client holds a valid session synchronously. Enabling queries here (instead
-  // of waiting for the async onAuthStateChange round-trip) removes the ~1s
-  // "blank/hanging" gap before any data starts loading. AuthProvider still
-  // listens for TOKEN_REFRESHED/SIGNED_IN and re-validates afterwards.
+  // We deliberately do NOT set isBootstrapped here. Enabling queries before
+  // the browser supabase client has confirmed its session (the INITIAL_SESSION
+  // / SIGNED_IN event in AuthProvider) lets queries fire without an auth header
+  // -> RLS returns empty -> empty data gets cached, which on production cold
+  // loads showed up as "must refresh several times before data appears".
+  // AuthProvider flips isBootstrapped only once a session is confirmed, so the
+  // first query is always authenticated. The profile below is purely for
+  // instant display and does not gate any queries.
   useLayoutEffect(() => {
     console.log('[AppShell] bootstrap — initialProfile:', initialProfile ? initialProfile.id : 'null')
     if (initialProfile) {
-      useAuthStore.setState({ profile: initialProfile, isBootstrapped: true })
+      useAuthStore.setState({ profile: initialProfile })
     } else {
       useAuthStore.setState({ profile: null })
     }

@@ -56,31 +56,26 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (event === 'INITIAL_SESSION') {
           bootstrappedByEvent = true
-          // Enable queries immediately — do not block on the profile fetch.
-          if (mounted) useAuthStore.setState({ isBootstrapped: true })
           if (session?.user) {
-            // AppShell enables queries from the server-rendered profile BEFORE
-            // this event fires. Those early queries can race ahead of the
-            // browser supabase client finishing its session hydration and go
-            // out without the user's auth header -> RLS returns empty -> React
-            // Query caches an empty "success". INITIAL_SESSION is the first
-            // point where the client session is guaranteed ready, so we
-            // invalidate here to force any such queries to refetch WITH the
-            // token. React Query dedupes in-flight fetches, so in the happy
-            // path this is at most one cheap refetch. This is what fixes the
-            // production "must refresh several times before data appears" bug.
-            //
-            // CRITICAL: do NOT call supabase.from()/invalidateQueries
-            // synchronously inside this callback. @supabase/ssr holds an
-            // internal lock for the duration of the onAuthStateChange callback;
-            // a re-entrant supabase query deadlocks it forever (the
-            // "Indlæser… i en evighed" hang). Defer with setTimeout(0) so the
-            // callback returns and the lock releases first.
+            // Confirmed session: GoTrue now holds a valid access token in
+            // memory, so every supabase.from() query will be authenticated.
+            // ONLY here do we enable queries (isBootstrapped). This is the key
+            // to the production "must refresh several times before data
+            // appears" bug: previously isBootstrapped flipped true even when
+            // the session was null (token mid-refresh), so queries fired
+            // without an auth header -> RLS returned empty -> cached as an
+            // empty success. Gating on a confirmed session removes that race
+            // entirely — the first query is always authenticated.
+            if (mounted) useAuthStore.setState({ isBootstrapped: true })
+            // Fetch the profile only if AppShell didn't already provide it from
+            // the server render. Deferred via setTimeout(0): @supabase/ssr holds
+            // an internal lock for the duration of this callback, so a
+            // re-entrant supabase query here would deadlock it forever (the
+            // "Indlæser… i en evighed" hang).
             const userId = session.user.id
-            const needsProfile = !useAuthStore.getState().profile
-            setTimeout(async () => {
-              if (!mounted) return
-              if (needsProfile && !useAuthStore.getState().profile) {
+            if (!useAuthStore.getState().profile) {
+              setTimeout(async () => {
+                if (!mounted || useAuthStore.getState().profile) return
                 try {
                   const { data, error: profileErr } = await supabase
                     .from('profiles')
@@ -93,17 +88,15 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
                 } catch (e) {
                   console.error('[Auth] INITIAL_SESSION profile fetch threw:', e)
                 }
-              }
-              if (mounted) {
-                console.log('[Auth] INITIAL_SESSION: invalidating queries with confirmed session')
-                queryClient.invalidateQueries()
-              }
-            }, 0)
+              }, 0)
+            }
           } else {
-            // Session is null — token is mid-refresh. Do NOT call setProfile(null) here:
-            // AppShell may have already set a valid profile from the server-side fetch.
-            // SIGNED_IN will fire shortly with the refreshed token and update everything.
-            console.log('[Auth] INITIAL_SESSION: null session — skipping setProfile, awaiting SIGNED_IN')
+            // Session is null — token is mid-refresh. Do NOT enable queries and
+            // do NOT call setProfile(null): SIGNED_IN/TOKEN_REFRESHED will fire
+            // shortly with the refreshed token and set isBootstrapped + refetch.
+            // Keeping isBootstrapped false here is what prevents the
+            // unauthenticated first query that caused empty data on prod cold loads.
+            console.log('[Auth] INITIAL_SESSION: null session — awaiting SIGNED_IN before enabling queries')
           }
           return
         }
